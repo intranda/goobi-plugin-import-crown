@@ -42,10 +42,10 @@ import ugh.fileformats.mets.MetsMods;
 
 @PluginImplementation
 @Log4j2
-public class SampleImportPlugin implements IImportPluginVersion2 {
+public class CrownImportPlugin implements IImportPluginVersion2 {
 
     @Getter
-    private String title = "intranda_import_sample";
+    private String title = "intranda_import_crown";
     @Getter
     private PluginType type = PluginType.Import;
 
@@ -78,7 +78,7 @@ public class SampleImportPlugin implements IImportPluginVersion2 {
     /**
      * define what kind of import plugin this is
      */
-    public SampleImportPlugin() {
+    public CrownImportPlugin() {
         importTypes = new ArrayList<>();
         importTypes.add(ImportType.FILE);
     }
@@ -249,7 +249,7 @@ public class SampleImportPlugin implements IImportPluginVersion2 {
                 fileformat.write(fileName);
                 io.setImportReturnValue(ImportReturnValue.ExportFinished);
             } catch (UGHException e) {
-                log.error("Error while creating Goobi processes in the SampleImportPlugin", e);
+                log.error("Error while creating Goobi processes in the CrownImportPlugin", e);
                 io.setImportReturnValue(ImportReturnValue.WriteError);
             }
 

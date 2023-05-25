@@ -28,7 +28,7 @@ import de.sub.goobi.config.ConfigPlugins;
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({ ConfigPlugins.class })
 @PowerMockIgnore({ "javax.management.*", "javax.net.ssl.*" ,"jdk.internal.reflect.*"})
-public class SampleImportPluginTest {
+public class CrownImportPluginTest {
 
 
 
@@ -67,7 +67,7 @@ public class SampleImportPluginTest {
 
     @Test
     public void testConstructor() {
-        SampleImportPlugin plugin = new SampleImportPlugin();
+        CrownImportPlugin plugin = new CrownImportPlugin();
         assertNotNull(plugin);
         assertEquals(ImportType.FILE, plugin.getImportTypes().get(0));
         plugin.setImportFolder(tempFolder.getAbsolutePath());
