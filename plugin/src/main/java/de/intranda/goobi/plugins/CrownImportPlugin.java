@@ -1,19 +1,14 @@
 package de.intranda.goobi.plugins;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 
 import org.apache.commons.configuration.SubnodeConfiguration;
 import org.apache.commons.configuration.XMLConfiguration;
 import org.apache.commons.configuration.reloading.FileChangedReloadingStrategy;
 import org.apache.commons.configuration.tree.xpath.XPathExpressionEngine;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
-import org.goobi.production.enums.ImportReturnValue;
 import org.goobi.production.enums.ImportType;
 import org.goobi.production.enums.PluginType;
 import org.goobi.production.importer.DocstructElement;
@@ -29,20 +24,14 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
 import net.xeoh.plugins.base.annotations.PluginImplementation;
-import ugh.dl.DigitalDocument;
-import ugh.dl.DocStruct;
-import ugh.dl.DocStructType;
 import ugh.dl.Fileformat;
-import ugh.dl.Metadata;
-import ugh.dl.MetadataType;
-import ugh.dl.Person;
 import ugh.dl.Prefs;
-import ugh.exceptions.UGHException;
-import ugh.fileformats.mets.MetsMods;
 
 @PluginImplementation
 @Log4j2
 public class CrownImportPlugin implements IImportPluginVersion2 {
+
+    private static final long serialVersionUID = 8789683342709053966L;
 
     @Getter
     private String title = "intranda_import_crown";
@@ -73,7 +62,6 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
     private String workflowTitle;
 
     private boolean runAsGoobiScript = false;
-    private String collection;
 
     /**
      * define what kind of import plugin this is
@@ -100,13 +88,11 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
 
         if (myconfig != null) {
             runAsGoobiScript = myconfig.getBoolean("/runAsGoobiScript", false);
-            collection = myconfig.getString("/collection", "");
         }
     }
 
     /**
-     * This method is used to generate records based on the imported data
-     * these records will then be used later to generate the Goobi processes
+     * This method is used to generate records based on the imported data these records will then be used later to generate the Goobi processes
      */
     @Override
     public List<Record> generateRecordsFromFile() {
@@ -115,147 +101,40 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
         }
         readConfig();
 
+        // open excel file
+        // create new ead file
+        // read all lines
+        // for each line:
+        // - get hierarchy by checking which column contains the first text
+        // - create ead node
+        // - the last entry of the higher hierarchy level is used as the parent node.
+        // - first text: identifier
+        // - second column: title/label
+        // - if bold: create process/Record
+        // - try to import metadata based on identifier
+
+
+
         // the list where the records are stored
         List<Record> recordList = new ArrayList<>();
-
-        try {
-            // read the file in to generate the records
-            String content = FileUtils.readFileToString(file, StandardCharsets.UTF_8);
-        
-            // run through the content line by line
-            String lines[] = content.split("\\r?\\n");
-
-            // generate a record for each process to be created
-            for (String line : lines) {
-                
-                // Split the string and generate a hashmap for all needed metadata
-                String fields[] = line.split(";");
-                HashMap<String, String> map = new HashMap<String, String>();
-                String id = fields[0].trim();
-                
-                // put all fields into the hashmap
-                map.put("ID", id);
-                map.put("Author first name", fields[1].trim());
-                map.put("Author last name", fields[2].trim());
-                map.put("Title", fields[3].trim());
-                map.put("Year", fields[4].trim());
-                
-                // create a record and put the hashmap with data to it
-                Record r = new Record();
-                r.setId(id);
-                r.setObject(map);
-                recordList.add(r);                
-            }
-        
-        } catch (IOException e) {
-            log.error("Error while reading the uploaded file", e);
-        }
 
         // return the list of all generated records
         return recordList;
     }
 
     /**
-     * This method is used to actually create the Goobi processes
-     * this is done based on previously created records
+     * This method is used to actually create the Goobi processes this is done based on previously created records
      */
     @Override
-    @SuppressWarnings("unchecked")
     public List<ImportObject> generateFiles(List<Record> records) {
         if (StringUtils.isBlank(workflowTitle)) {
             workflowTitle = form.getTemplate().getTitel();
         }
         readConfig();
 
-        // some general preparations
-        DocStructType physicalType = prefs.getDocStrctTypeByName("BoundBook");
-        DocStructType logicalType = prefs.getDocStrctTypeByName("Monograph");
-        MetadataType pathimagefilesType = prefs.getMetadataTypeByName("pathimagefiles");
+
         List<ImportObject> answer = new ArrayList<>();
 
-        // run through all records and create a Goobi process for each of it
-        for (Record record : records) {
-            ImportObject io = new ImportObject();
-
-            String id = record.getId().replaceAll("\\W", "_");
-            HashMap<String, String> map = (HashMap<String, String>) record.getObject();
-
-            // create a new mets file
-            try {
-                Fileformat fileformat = new MetsMods(prefs);
-
-                // create digital document
-                DigitalDocument dd = new DigitalDocument();
-                fileformat.setDigitalDocument(dd);
-
-                // create physical DocStruct
-                DocStruct physical = dd.createDocStruct(physicalType);
-                dd.setPhysicalDocStruct(physical);
-
-                // set imagepath
-                Metadata newmd = new Metadata(pathimagefilesType);
-                newmd.setValue("/images/");
-                physical.addMetadata(newmd);
-
-                // create logical DocStruct
-                DocStruct logical = dd.createDocStruct(logicalType);
-                dd.setLogicalDocStruct(logical);
-
-                // create metadata field for CatalogIDDigital with cleaned value
-                Metadata md1 = new Metadata(prefs.getMetadataTypeByName("CatalogIDDigital"));
-                md1.setValue(map.get("ID").replaceAll("\\W", "_"));
-                logical.addMetadata(md1);
-
-                // create metadata field for main title
-                Metadata md2 = new Metadata(prefs.getMetadataTypeByName("TitleDocMain"));
-                md2.setValue(map.get("Title"));
-                logical.addMetadata(md2);
-                
-                // create metadata field for year
-                Metadata md3 = new Metadata(prefs.getMetadataTypeByName("PublicationYear"));
-                md3.setValue(map.get("Year"));
-                logical.addMetadata(md3);
-                
-                // add author
-                Person per = new Person(prefs.getMetadataTypeByName("Author"));
-                per.setFirstname(map.get("Author first name"));
-                per.setLastname(map.get("Author last name"));
-                //per.setRole("Author");
-                logical.addPerson(per);
-
-                // create metadata field for configured digital collection
-                MetadataType typeCollection = prefs.getMetadataTypeByName("singleDigCollection");
-                if (StringUtils.isNotBlank(collection)) {
-                    Metadata mdc = new Metadata(typeCollection);
-                    mdc.setValue(collection);
-                    logical.addMetadata(mdc);
-                }
-
-                // and add all collections that where selected
-                if (form != null) {
-                    for (String c : form.getDigitalCollections()) {
-                        if (!c.equals(collection.trim())) {
-                            Metadata md = new Metadata(typeCollection);
-                            md.setValue(c);
-                            logical.addMetadata(md);
-                        }
-                    }
-                }
-
-                // set the title for the Goobi process
-                io.setProcessTitle(id);
-                String fileName = getImportFolder() + File.separator + io.getProcessTitle() + ".xml";
-                io.setMetsFilename(fileName);
-                fileformat.write(fileName);
-                io.setImportReturnValue(ImportReturnValue.ExportFinished);
-            } catch (UGHException e) {
-                log.error("Error while creating Goobi processes in the CrownImportPlugin", e);
-                io.setImportReturnValue(ImportReturnValue.WriteError);
-            }
-
-            // now add the process to the list
-            answer.add(io);
-        }
         return answer;
     }
 
@@ -276,13 +155,12 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
 
     @Override
     public List<Record> splitRecords(String string) {
-        List<Record> answer = new ArrayList<>();
-        return answer;
+        return new ArrayList<>();
     }
 
     @Override
     public List<String> splitIds(String ids) {
-        return null;
+        return null; //NOSONAR
     }
 
     @Override
@@ -297,21 +175,22 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
 
     @Override
     public void deleteFiles(List<String> arg0) {
+        // do nothing
     }
 
     @Override
     public List<Record> generateRecordsFromFilenames(List<String> arg0) {
-        return null;
+        return null; //NOSONAR
     }
 
     @Override
     public List<String> getAllFilenames() {
-        return null;
+        return null; //NOSONAR
     }
 
     @Override
     public List<? extends DocstructElement> getCurrentDocStructs() {
-        return null;
+        return null; //NOSONAR
     }
 
     @Override
@@ -321,7 +200,7 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
 
     @Override
     public List<String> getPossibleDocstructs() {
-        return null;
+        return null; //NOSONAR
     }
 
     @Override
@@ -331,15 +210,17 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
 
     @Override
     public List<ImportProperty> getProperties() {
-        return null;
+        return null; //NOSONAR
     }
 
     @Override
     public void setData(Record arg0) {
+        // do nothing
     }
 
     @Override
     public void setDocstruct(DocstructElement arg0) {
+        // do nothing
     }
 
     @Override
