@@ -1,22 +1,42 @@
 package de.intranda.goobi.plugins;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 
 import org.apache.commons.configuration.SubnodeConfiguration;
 import org.apache.commons.configuration.XMLConfiguration;
 import org.apache.commons.configuration.reloading.FileChangedReloadingStrategy;
 import org.apache.commons.configuration.tree.xpath.XPathExpressionEngine;
+import org.apache.commons.io.input.BOMInputStream;
 import org.apache.commons.lang.StringUtils;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Row.MissingCellPolicy;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
+import org.goobi.interfaces.IArchiveManagementAdministrationPlugin;
+import org.goobi.interfaces.IEadEntry;
+import org.goobi.interfaces.IMetadataField;
 import org.goobi.production.enums.ImportType;
 import org.goobi.production.enums.PluginType;
 import org.goobi.production.importer.DocstructElement;
 import org.goobi.production.importer.ImportObject;
 import org.goobi.production.importer.Record;
+import org.goobi.production.plugin.PluginLoader;
 import org.goobi.production.plugin.interfaces.IImportPluginVersion2;
+import org.goobi.production.plugin.interfaces.IPlugin;
 import org.goobi.production.properties.ImportProperty;
 
+import de.intranda.goobi.plugins.model.FieldValue;
 import de.sub.goobi.config.ConfigPlugins;
 import de.sub.goobi.forms.MassImportForm;
 import de.sub.goobi.helper.exceptions.ImportPluginException;
@@ -63,6 +83,10 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
 
     private boolean runAsGoobiScript = false;
 
+    private IArchiveManagementAdministrationPlugin archivePlugin;
+
+    private IEadEntry rootEntry;
+
     /**
      * define what kind of import plugin this is
      */
@@ -88,6 +112,24 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
 
         if (myconfig != null) {
             runAsGoobiScript = myconfig.getBoolean("/runAsGoobiScript", false);
+            String eadFileName = myconfig.getString("/basex/filename");
+            String databaseName = myconfig.getString("/basex/database");
+
+            // open archive plugin, load ead file or create new one
+            if (archivePlugin == null) {
+                // find out if archive file is locked currently
+                IPlugin ia = PluginLoader.getPluginByTitle(PluginType.Administration, "intranda_administration_archive_management");
+                archivePlugin = (IArchiveManagementAdministrationPlugin) ia;
+
+                archivePlugin.setDatabaseName(databaseName);
+                archivePlugin.setFileName(eadFileName);
+                archivePlugin.createNewDatabase();
+                rootEntry = archivePlugin.getRootElement();
+                //            String eadFileName = myconfig.getString("eadFile");
+                //            archivePlugin.getPossibleDatabases();
+                //            archivePlugin.setSelectedDatabase(eadFileName);
+                //            archivePlugin.loadSelectedDatabase();
+            }
         }
     }
 
@@ -101,25 +143,142 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
         }
         readConfig();
 
-        // open excel file
-        // create new ead file
-        // read all lines
-        // for each line:
-        // - get hierarchy by checking which column contains the first text
-        // - create ead node
-        // - the last entry of the higher hierarchy level is used as the parent node.
-        // - first text: identifier
-        // - second column: title/label
-        // - if bold: create process/Record
-        // - try to import metadata based on identifier
-
-
-
         // the list where the records are stored
         List<Record> recordList = new ArrayList<>();
 
+        int rowDataStart = 7; // TODO config
+        int rowCounter = 0;
+
+        IEadEntry lastElement = rootEntry;
+
+        // open excel file
+        try (InputStream fileInputStream = new FileInputStream(file); BOMInputStream in = new BOMInputStream(fileInputStream, false);
+                Workbook wb = WorkbookFactory.create(in)) {
+            Sheet sheet = wb.getSheetAt(0);
+            Iterator<Row> rowIterator = sheet.rowIterator();
+            // go to first data row
+            while (rowCounter < rowDataStart - 1) {
+                rowCounter++;
+            }
+
+            // read all lines
+            while (rowIterator.hasNext()) {
+                Row row = rowIterator.next();
+                int lastColumn = row.getLastCellNum();
+                if (lastColumn == -1) {
+                    // skip empty lines
+                    continue;
+                }
+
+                int hierarchy = 0;
+                String identifier = null;
+                String label = null;
+                boolean createProcess = false;
+
+                for (int cellCounter = 0; cellCounter < lastColumn; cellCounter++) {
+                    Cell cell = row.getCell(cellCounter, MissingCellPolicy.CREATE_NULL_AS_BLANK);
+                    if (cell == null || StringUtils.isBlank(cell.getStringCellValue())) {
+                        // skip empty cell in order to find first column with content
+                        continue;
+                    }
+                    // we found content
+                    if (StringUtils.isBlank(identifier)) {
+                        identifier = cell.getStringCellValue();
+                        hierarchy = cellCounter;
+                        // check if value is bold
+                        CellStyle cs = cell.getCellStyle();
+                        Font font = ((XSSFCellStyle) cs).getFont();
+                        // if yes, create a process
+                        if (font.getBold()) {
+                            createProcess = true;
+                        }
+                    } else {
+                        label = cell.getStringCellValue();
+                    }
+                }
+
+                if (createProcess) {
+                    Record rec = new Record();
+                    rec.setData(label);
+                    rec.setId(identifier);
+                    rec.setObject(hierarchy);
+                    recordList.add(rec);
+                }
+
+                if (hierarchy == 0) {
+                    // root element
+                    createEadMetadata(rootEntry, identifier, label, createProcess, hierarchy);
+                } else {
+                    IEadEntry parentNode =null;
+                    // if current hierarchy is > lastElement hierarchy -> current is sub element of last element
+
+                    if (hierarchy > lastElement.getHierarchy().intValue()) {
+                        parentNode = lastElement;
+                    }
+                    else if (hierarchy == lastElement.getHierarchy().intValue()) {
+                        // if current hierarchy == lastElement hierarchy -> current is sibling of last element, get parent element
+                        parentNode = lastElement.getParentNode();
+                    } else {
+                        // else run recursive through all parents of last element until the direct parent is found
+                        parentNode = lastElement.getParentNode();
+                        while (hierarchy <= parentNode.getHierarchy().intValue()) {
+                            parentNode = parentNode.getParentNode();
+                        }
+                    }
+
+
+                    // set parent element in archivePlugin
+                    archivePlugin.setSelectedEntry(parentNode);
+                    // create new node
+                    archivePlugin.addNode();
+                    // get new node
+                    lastElement = archivePlugin.getSelectedEntry();
+                    // set metadata
+                    createEadMetadata(lastElement, identifier, label, createProcess, hierarchy);
+                }
+            }
+
+            // for each line:
+            // - get hierarchy by checking which column contains the first text
+            // - create ead node
+            // - the last entry of the higher hierarchy level is used as the parent node.
+            // - first text: identifier
+            // - second column: title/label
+            // - if bold: create process/Record
+            // - try to import metadata based on identifier
+
+        } catch (Exception e) {
+            log.error(e);
+        }
+
+        // save ead record
+        archivePlugin.createEadDocument();
+
         // return the list of all generated records
         return recordList;
+    }
+
+    private void createEadMetadata(IEadEntry entry, String identifier, String label, boolean createProcess, int hierarchy) {
+        // add identifier and label
+        for (IMetadataField field : entry.getIdentityStatementAreaList()) {
+            if (field.getName().equals("unittitle")) {
+                FieldValue value = new FieldValue(field);
+                value.setValue(label);
+                field.setValues(Arrays.asList(value));
+            }
+            if (field.getName().equalsIgnoreCase("Shelfmark")) {
+                FieldValue value = new FieldValue(field);
+                value.setValue(identifier);
+                field.setValues(Arrays.asList(value));
+            }
+        }
+        entry.setId(identifier);
+        if (createProcess) {
+            entry.setGoobiProcessTitle(identifier);
+        }
+        entry.setLabel(label);
+        entry.setHierarchy(hierarchy);
+        //  entry.setOrderNumber(null);
     }
 
     /**
@@ -131,7 +290,6 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
             workflowTitle = form.getTemplate().getTitel();
         }
         readConfig();
-
 
         List<ImportObject> answer = new ArrayList<>();
 

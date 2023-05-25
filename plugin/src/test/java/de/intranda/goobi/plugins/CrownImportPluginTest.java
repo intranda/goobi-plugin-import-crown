@@ -74,7 +74,7 @@ public class CrownImportPluginTest {
     }
 
     private XMLConfiguration getConfig() {
-        String file = "plugin_intranda_import_sample.xml";
+        String file = "plugin_intranda_import_crown.xml";
         XMLConfiguration config = new XMLConfiguration();
         config.setDelimiterParsingDisabled(true);
         try {
