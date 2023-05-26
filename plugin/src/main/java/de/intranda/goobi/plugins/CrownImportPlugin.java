@@ -223,7 +223,8 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
 
                 if (hierarchy == 0) {
                     // root element
-                    createEadMetadata(rootEntry, identifier, label, createProcess, hierarchy);
+                    // TODO root metadata is not written
+                    createEadMetadata(rootEntry, identifier, label, createProcess);
                 } else {
                     IEadEntry parentNode = null;
                     // if current hierarchy is > lastElement hierarchy -> current is sub element of last element
@@ -256,18 +257,9 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                     }
 
                     // set metadata
-                    createEadMetadata(lastElement, identifier, label, createProcess, hierarchy);
+                    createEadMetadata(lastElement, identifier, label, createProcess);
                 }
             }
-
-            // for each line:
-            // - get hierarchy by checking which column contains the first text
-            // - create ead node
-            // - the last entry of the higher hierarchy level is used as the parent node.
-            // - first text: identifier
-            // - second column: title/label
-            // - if bold: create process/Record
-            // - try to import metadata based on identifier
 
         } catch (Exception e) {
             log.error(e);
@@ -280,7 +272,7 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
         return recordList;
     }
 
-    private void createEadMetadata(IEadEntry entry, String identifier, String label, boolean createProcess, int hierarchy) {
+    private void createEadMetadata(IEadEntry entry, String identifier, String label, boolean createProcess) {
         // add identifier and label
         for (IMetadataField field : entry.getIdentityStatementAreaList()) {
             if ("unittitle".equals(field.getName())) {
@@ -299,7 +291,6 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
             entry.setGoobiProcessTitle(identifier);
         }
         entry.setLabel(label);
-        entry.setHierarchy(hierarchy);
     }
 
     /**
