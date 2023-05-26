@@ -27,6 +27,7 @@ import org.goobi.interfaces.IArchiveManagementAdministrationPlugin;
 import org.goobi.interfaces.IEadEntry;
 import org.goobi.interfaces.IMetadataField;
 import org.goobi.interfaces.INodeType;
+import org.goobi.production.enums.ImportReturnValue;
 import org.goobi.production.enums.ImportType;
 import org.goobi.production.enums.PluginType;
 import org.goobi.production.importer.DocstructElement;
@@ -90,6 +91,9 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
 
     private int startRow;
 
+    private String eadFileName;
+    private String databaseName;
+
     /**
      * define what kind of import plugin this is
      */
@@ -115,21 +119,10 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
 
         if (myconfig != null) {
             runAsGoobiScript = myconfig.getBoolean("/runAsGoobiScript", false);
-            String eadFileName = myconfig.getString("/basex/filename");
-            String databaseName = myconfig.getString("/basex/database");
+            eadFileName = myconfig.getString("/basex/filename");
+            databaseName = myconfig.getString("/basex/database");
             startRow = myconfig.getInt("/startRow", 0);
 
-            // open archive plugin, load ead file or create new one
-            if (archivePlugin == null) {
-                // find out if archive file is locked currently
-                IPlugin ia = PluginLoader.getPluginByTitle(PluginType.Administration, "intranda_administration_archive_management");
-                archivePlugin = (IArchiveManagementAdministrationPlugin) ia;
-
-                archivePlugin.setDatabaseName(databaseName);
-                archivePlugin.setFileName(eadFileName);
-                archivePlugin.createNewDatabase();
-                rootEntry = archivePlugin.getRootElement();
-            }
         }
     }
 
@@ -142,6 +135,18 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
             workflowTitle = form.getTemplate().getTitel();
         }
         readConfig();
+
+        // open archive plugin, load ead file or create new one
+        if (archivePlugin == null) {
+            // find out if archive file is locked currently
+            IPlugin ia = PluginLoader.getPluginByTitle(PluginType.Administration, "intranda_administration_archive_management");
+            archivePlugin = (IArchiveManagementAdministrationPlugin) ia;
+
+            archivePlugin.setDatabaseName(databaseName);
+            archivePlugin.setFileName(eadFileName);
+            archivePlugin.createNewDatabase();
+            rootEntry = archivePlugin.getRootElement();
+        }
 
         INodeType fileType = null;
         INodeType folderType = null;
@@ -315,6 +320,8 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
             // copy images
 
             ImportObject io = new ImportObject();
+            io.setImportReturnValue(ImportReturnValue.WriteError);
+            io.setErrorMessage("Not implemented.");
             io.setProcessTitle(rec.getId());
             answer.add(io);
         }
