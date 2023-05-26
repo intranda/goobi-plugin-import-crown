@@ -26,6 +26,7 @@ import org.apache.poi.xssf.usermodel.XSSFCellStyle;
 import org.goobi.interfaces.IArchiveManagementAdministrationPlugin;
 import org.goobi.interfaces.IEadEntry;
 import org.goobi.interfaces.IMetadataField;
+import org.goobi.interfaces.INodeType;
 import org.goobi.production.enums.ImportType;
 import org.goobi.production.enums.PluginType;
 import org.goobi.production.importer.DocstructElement;
@@ -85,7 +86,9 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
 
     private IArchiveManagementAdministrationPlugin archivePlugin;
 
-    private IEadEntry rootEntry;
+    private transient IEadEntry rootEntry;
+
+    private int startRow;
 
     /**
      * define what kind of import plugin this is
@@ -114,6 +117,7 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
             runAsGoobiScript = myconfig.getBoolean("/runAsGoobiScript", false);
             String eadFileName = myconfig.getString("/basex/filename");
             String databaseName = myconfig.getString("/basex/database");
+            startRow = myconfig.getInt("/startRow", 0);
 
             // open archive plugin, load ead file or create new one
             if (archivePlugin == null) {
@@ -125,10 +129,6 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                 archivePlugin.setFileName(eadFileName);
                 archivePlugin.createNewDatabase();
                 rootEntry = archivePlugin.getRootElement();
-                //            String eadFileName = myconfig.getString("eadFile");
-                //            archivePlugin.getPossibleDatabases();
-                //            archivePlugin.setSelectedDatabase(eadFileName);
-                //            archivePlugin.loadSelectedDatabase();
             }
         }
     }
@@ -137,16 +137,26 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
      * This method is used to generate records based on the imported data these records will then be used later to generate the Goobi processes
      */
     @Override
-    public List<Record> generateRecordsFromFile() {
+    public List<Record> generateRecordsFromFile() { //NOSONAR
         if (StringUtils.isBlank(workflowTitle)) {
             workflowTitle = form.getTemplate().getTitel();
         }
         readConfig();
 
+        INodeType fileType = null;
+        INodeType folderType = null;
+
+        for (INodeType nodeType : archivePlugin.getConfiguredNodes()) {
+            if ("folder".equals(nodeType.getNodeName())) {
+                folderType = nodeType;
+            } else if ("file".equals(nodeType.getNodeName())) {
+                fileType = nodeType;
+            }
+        }
+
         // the list where the records are stored
         List<Record> recordList = new ArrayList<>();
 
-        int rowDataStart = 7; // TODO config
         int rowCounter = 0;
 
         IEadEntry lastElement = rootEntry;
@@ -157,8 +167,9 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
             Sheet sheet = wb.getSheetAt(0);
             Iterator<Row> rowIterator = sheet.rowIterator();
             // go to first data row
-            while (rowCounter < rowDataStart - 1) {
+            while (rowCounter < startRow - 1) {
                 rowCounter++;
+                rowIterator.next();
             }
 
             // read all lines
@@ -209,13 +220,12 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                     // root element
                     createEadMetadata(rootEntry, identifier, label, createProcess, hierarchy);
                 } else {
-                    IEadEntry parentNode =null;
+                    IEadEntry parentNode = null;
                     // if current hierarchy is > lastElement hierarchy -> current is sub element of last element
 
                     if (hierarchy > lastElement.getHierarchy().intValue()) {
                         parentNode = lastElement;
-                    }
-                    else if (hierarchy == lastElement.getHierarchy().intValue()) {
+                    } else if (hierarchy == lastElement.getHierarchy().intValue()) {
                         // if current hierarchy == lastElement hierarchy -> current is sibling of last element, get parent element
                         parentNode = lastElement.getParentNode();
                     } else {
@@ -226,13 +236,20 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                         }
                     }
 
-
                     // set parent element in archivePlugin
                     archivePlugin.setSelectedEntry(parentNode);
                     // create new node
                     archivePlugin.addNode();
                     // get new node
                     lastElement = archivePlugin.getSelectedEntry();
+
+                    // set node type
+                    if (createProcess) {
+                        lastElement.setNodeType(fileType);
+                    } else {
+                        lastElement.setNodeType(folderType);
+                    }
+
                     // set metadata
                     createEadMetadata(lastElement, identifier, label, createProcess, hierarchy);
                 }
@@ -261,12 +278,12 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
     private void createEadMetadata(IEadEntry entry, String identifier, String label, boolean createProcess, int hierarchy) {
         // add identifier and label
         for (IMetadataField field : entry.getIdentityStatementAreaList()) {
-            if (field.getName().equals("unittitle")) {
+            if ("unittitle".equals(field.getName())) {
                 FieldValue value = new FieldValue(field);
                 value.setValue(label);
                 field.setValues(Arrays.asList(value));
             }
-            if (field.getName().equalsIgnoreCase("Shelfmark")) {
+            if ("Shelfmark".equalsIgnoreCase(field.getName())) {
                 FieldValue value = new FieldValue(field);
                 value.setValue(identifier);
                 field.setValues(Arrays.asList(value));
@@ -278,7 +295,6 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
         }
         entry.setLabel(label);
         entry.setHierarchy(hierarchy);
-        //  entry.setOrderNumber(null);
     }
 
     /**
@@ -292,6 +308,16 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
         readConfig();
 
         List<ImportObject> answer = new ArrayList<>();
+
+        for (Record rec : records) {
+            // create process
+
+            // copy images
+
+            ImportObject io = new ImportObject();
+            io.setProcessTitle(rec.getId());
+            answer.add(io);
+        }
 
         return answer;
     }

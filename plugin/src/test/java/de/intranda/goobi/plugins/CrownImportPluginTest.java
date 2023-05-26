@@ -6,12 +6,14 @@ import static org.junit.Assert.assertNotNull;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.List;
 
 import org.apache.commons.configuration.ConfigurationException;
 import org.apache.commons.configuration.XMLConfiguration;
 import org.apache.commons.configuration.reloading.FileChangedReloadingStrategy;
 import org.easymock.EasyMock;
 import org.goobi.production.enums.ImportType;
+import org.goobi.production.importer.Record;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
@@ -27,10 +29,8 @@ import de.sub.goobi.config.ConfigPlugins;
 
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({ ConfigPlugins.class })
-@PowerMockIgnore({ "javax.management.*", "javax.net.ssl.*" ,"jdk.internal.reflect.*"})
+@PowerMockIgnore({ "javax.management.*", "javax.net.ssl.*", "jdk.internal.reflect.*" })
 public class CrownImportPluginTest {
-
-
 
     @Rule
     public TemporaryFolder folder = new TemporaryFolder();
@@ -63,6 +63,7 @@ public class CrownImportPluginTest {
         PowerMock.mockStatic(ConfigPlugins.class);
         EasyMock.expect(ConfigPlugins.getPluginConfig(EasyMock.anyString())).andReturn(getConfig()).anyTimes();
         PowerMock.replay(ConfigPlugins.class);
+
     }
 
     @Test
@@ -71,6 +72,17 @@ public class CrownImportPluginTest {
         assertNotNull(plugin);
         assertEquals(ImportType.FILE, plugin.getImportTypes().get(0));
         plugin.setImportFolder(tempFolder.getAbsolutePath());
+    }
+
+    //    @Test
+    public void testUploadFile() {
+        CrownImportPlugin plugin = new CrownImportPlugin();
+        assertNotNull(plugin);
+        plugin.setWorkflowTitle("workflowTitle");
+        plugin.setFile(Paths.get(resourcesFolder, "sample.xlsx").toFile());
+
+        List<Record> fixture = plugin.generateRecordsFromFile();
+        assertEquals(0, fixture.size());
     }
 
     private XMLConfiguration getConfig() {
