@@ -6,11 +6,22 @@
 
 		<!-- define if import shall use GoobiScript to run in the background -->
 		<runAsGoobiScript>true</runAsGoobiScript>
-
+		
+		<!-- first data row in excel file -->
 		<startRow>7</startRow>
+
+		<!-- basex database name and file name -->
         <basex>
             <database>basexdb</database>
             <filename>crown.xml</filename>
         </basex>
+
+		<!-- metadata --> 
+        <metadata>
+            <doctype>Monograph</doctype>
+            <title>TitleDocMain</title>
+            <identifier>CatalogIDDigital</identifier>
+        </metadata>
+
 	</config>
 </config_plugin>
