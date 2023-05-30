@@ -46,8 +46,17 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
 import net.xeoh.plugins.base.annotations.PluginImplementation;
+import ugh.dl.DigitalDocument;
+import ugh.dl.DocStruct;
 import ugh.dl.Fileformat;
+import ugh.dl.Metadata;
+import ugh.dl.MetadataType;
 import ugh.dl.Prefs;
+import ugh.exceptions.MetadataTypeNotAllowedException;
+import ugh.exceptions.PreferencesException;
+import ugh.exceptions.TypeNotAllowedForParentException;
+import ugh.exceptions.WriteException;
+import ugh.fileformats.mets.MetsMods;
 
 @PluginImplementation
 @Log4j2
@@ -94,6 +103,12 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
     private String eadFileName;
     private String databaseName;
 
+    // metadata information
+    private String docType;
+    private String identifierMetadata;
+    private String titleMetadata;
+
+
     /**
      * define what kind of import plugin this is
      */
@@ -123,6 +138,9 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
             databaseName = myconfig.getString("/basex/database");
             startRow = myconfig.getInt("/startRow", 0);
 
+            docType = myconfig.getString("/metadata/doctype", "Monograph");
+            identifierMetadata = myconfig.getString("/metadata/title", "TitleDocMain");
+            titleMetadata = myconfig.getString("/metadata/identifier", "CatalogIDDigital");
         }
     }
 
@@ -223,12 +241,11 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
 
                 if (hierarchy == 0) {
                     // root element
-                    // TODO root metadata is not written
-                    createEadMetadata(rootEntry, identifier, label, createProcess);
+                    createEadMetadata(lastElement, identifier, label, createProcess);
                 } else {
                     IEadEntry parentNode = null;
-                    // if current hierarchy is > lastElement hierarchy -> current is sub element of last element
 
+                    // if current hierarchy is > lastElement hierarchy -> current is sub element of last element
                     if (hierarchy > lastElement.getHierarchy().intValue()) {
                         parentNode = lastElement;
                     } else if (hierarchy == lastElement.getHierarchy().intValue()) {
@@ -305,15 +322,55 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
 
         List<ImportObject> answer = new ArrayList<>();
 
+
         for (Record rec : records) {
-            // create process
+            String processTitle = rec.getId().toLowerCase().replaceAll("\\W", "_");
+            String  metsFileName = getImportFolder() + File.separator + processTitle + ".xml";
+            try {
+                Fileformat fileformat = new MetsMods(prefs);
+                DigitalDocument digDoc = new DigitalDocument();
+                fileformat.setDigitalDocument(digDoc);
 
-            // copy images
+                DocStruct logical = digDoc.createDocStruct(prefs.getDocStrctTypeByName(docType));
+                DocStruct physical = digDoc.createDocStruct(prefs.getDocStrctTypeByName("BoundBook"));
+                digDoc.setLogicalDocStruct(logical);
+                digDoc.setPhysicalDocStruct(physical);
 
+                Metadata imagePath = new Metadata(prefs.getMetadataTypeByName("pathimagefiles"));
+                imagePath.setValue("./images/");
+                physical.addMetadata(imagePath);
+
+                Metadata idMetadata = new Metadata(prefs.getMetadataTypeByName(identifierMetadata));
+                idMetadata.setValue(rec.getId());
+                logical.addMetadata(idMetadata);
+
+                Metadata mainTitle = new Metadata(prefs.getMetadataTypeByName(titleMetadata));
+                mainTitle.setValue(rec.getData());
+                logical.addMetadata(mainTitle);
+
+                MetadataType eadIdType = prefs.getMetadataTypeByName("NodeId");
+                if (eadIdType!=null) {
+                    Metadata eadId = new Metadata(eadIdType);
+                    eadId.setValue(rec.getId());
+                    logical.addMetadata(eadId);
+                }
+                fileformat.write(metsFileName);
+            } catch (PreferencesException|TypeNotAllowedForParentException | MetadataTypeNotAllowedException | WriteException e) {
+                log.error(e);
+            }
+
+            // create process data
             ImportObject io = new ImportObject();
-            io.setImportReturnValue(ImportReturnValue.WriteError);
-            io.setErrorMessage("Not implemented.");
-            io.setProcessTitle(rec.getId());
+            io.setProcessTitle(processTitle);
+            io.setMetsFilename(metsFileName);
+            // copy images, create page order
+
+            // TODO this needs clarification, where are the images, how are they organized?
+            // One folder per process, all files in one folder, matching per prefix?
+
+
+
+            io.setImportReturnValue(ImportReturnValue.ExportFinished);
             answer.add(io);
         }
 
