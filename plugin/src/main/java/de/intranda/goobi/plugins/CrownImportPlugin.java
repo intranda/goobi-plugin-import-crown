@@ -139,8 +139,8 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
             startRow = myconfig.getInt("/startRow", 0);
 
             docType = myconfig.getString("/metadata/doctype", "Monograph");
-            identifierMetadata = myconfig.getString("/metadata/title", "TitleDocMain");
-            titleMetadata = myconfig.getString("/metadata/identifier", "CatalogIDDigital");
+            identifierMetadata = myconfig.getString("/metadata/title", "CatalogIDDigital");
+            titleMetadata = myconfig.getString("/metadata/identifier", "TitleDocMain");
         }
     }
 
