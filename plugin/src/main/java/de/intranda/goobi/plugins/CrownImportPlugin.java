@@ -108,7 +108,6 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
     private String identifierMetadata;
     private String titleMetadata;
 
-
     /**
      * define what kind of import plugin this is
      */
@@ -139,8 +138,8 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
             startRow = myconfig.getInt("/startRow", 0);
 
             docType = myconfig.getString("/metadata/doctype", "Monograph");
-            identifierMetadata = myconfig.getString("/metadata/title", "CatalogIDDigital");
-            titleMetadata = myconfig.getString("/metadata/identifier", "TitleDocMain");
+            identifierMetadata = myconfig.getString("/metadata/identifier", "CatalogIDDigital");
+            titleMetadata = myconfig.getString("/metadata/title", "TitleDocMain");
         }
     }
 
@@ -322,10 +321,9 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
 
         List<ImportObject> answer = new ArrayList<>();
 
-
         for (Record rec : records) {
             String processTitle = rec.getId().toLowerCase().replaceAll("\\W", "_");
-            String  metsFileName = getImportFolder() + File.separator + processTitle + ".xml";
+            String metsFileName = getImportFolder() + File.separator + processTitle + ".xml";
             try {
                 Fileformat fileformat = new MetsMods(prefs);
                 DigitalDocument digDoc = new DigitalDocument();
@@ -349,13 +347,13 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                 logical.addMetadata(mainTitle);
 
                 MetadataType eadIdType = prefs.getMetadataTypeByName("NodeId");
-                if (eadIdType!=null) {
+                if (eadIdType != null) {
                     Metadata eadId = new Metadata(eadIdType);
                     eadId.setValue(rec.getId());
                     logical.addMetadata(eadId);
                 }
                 fileformat.write(metsFileName);
-            } catch (PreferencesException|TypeNotAllowedForParentException | MetadataTypeNotAllowedException | WriteException e) {
+            } catch (PreferencesException | TypeNotAllowedForParentException | MetadataTypeNotAllowedException | WriteException e) {
                 log.error(e);
             }
 
@@ -367,8 +365,6 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
 
             // TODO this needs clarification, where are the images, how are they organized?
             // One folder per process, all files in one folder, matching per prefix?
-
-
 
             io.setImportReturnValue(ImportReturnValue.ExportFinished);
             answer.add(io);
