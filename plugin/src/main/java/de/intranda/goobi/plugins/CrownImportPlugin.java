@@ -2,11 +2,19 @@ package de.intranda.goobi.plugins;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Stream;
 
 import org.apache.commons.configuration.SubnodeConfiguration;
 import org.apache.commons.configuration.XMLConfiguration;
@@ -41,6 +49,7 @@ import org.goobi.production.properties.ImportProperty;
 import de.intranda.goobi.plugins.model.FieldValue;
 import de.sub.goobi.config.ConfigPlugins;
 import de.sub.goobi.forms.MassImportForm;
+import de.sub.goobi.helper.StorageProvider;
 import de.sub.goobi.helper.exceptions.ImportPluginException;
 import lombok.Getter;
 import lombok.Setter;
@@ -108,6 +117,8 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
     private String identifierMetadata;
     private String titleMetadata;
 
+    private String imageRootFolder;
+
     /**
      * define what kind of import plugin this is
      */
@@ -140,6 +151,8 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
             docType = myconfig.getString("/metadata/doctype", "Monograph");
             identifierMetadata = myconfig.getString("/metadata/identifier", "CatalogIDDigital");
             titleMetadata = myconfig.getString("/metadata/title", "TitleDocMain");
+
+            imageRootFolder = myconfig.getString("/images");
         }
     }
 
@@ -319,10 +332,26 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
         }
         readConfig();
 
+        // collect all image folder
+        Map<String, Path> allImageFolder = new HashMap<>();
+
+        try (Stream<Path> stream = Files.find(Paths.get(imageRootFolder), 10, (p, attr) -> attr.isDirectory())) {
+            stream.forEach(p -> allImageFolder.put(p.getFileName().toString(), p));
+        } catch (IOException e) {
+            log.error(e);
+        }
+
         List<ImportObject> answer = new ArrayList<>();
 
         for (Record rec : records) {
             String processTitle = rec.getId().toLowerCase().replaceAll("\\W", "_");
+
+            Path currentImageFolder = allImageFolder.get(rec.getId());
+            List<Path> filesToImport = null;
+            if (currentImageFolder != null) {
+                filesToImport = StorageProvider.getInstance().listFiles(currentImageFolder.toString(), fileFilter);
+            }
+
             String metsFileName = getImportFolder() + File.separator + processTitle + ".xml";
             try {
                 Fileformat fileformat = new MetsMods(prefs);
@@ -361,10 +390,22 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
             ImportObject io = new ImportObject();
             io.setProcessTitle(processTitle);
             io.setMetsFilename(metsFileName);
-            // copy images, create page order
 
-            // TODO this needs clarification, where are the images, how are they organized?
-            // One folder per process, all files in one folder, matching per prefix?
+            // copy images
+            if (filesToImport != null) {
+                Path imageBasePath = Paths.get(metsFileName.replace(".xml", ""), "images", processTitle +"_media");
+                try {
+                    StorageProvider.getInstance().createDirectories(imageBasePath);
+                    // TODO filter files
+                    for (Path fileToCopy : filesToImport) {
+                        StorageProvider.getInstance().copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
+                    }
+                } catch (IOException e) {
+                    log.error(e);
+                }
+            }
+
+
 
             io.setImportReturnValue(ImportReturnValue.ExportFinished);
             answer.add(io);
@@ -462,5 +503,10 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
     public Fileformat convertData() throws ImportPluginException {
         return null;
     }
+
+    public static final DirectoryStream.Filter<Path> fileFilter = path -> {
+        String filename = path.getFileName().toString();
+        return !filename.contains("komprimiert") && (filename.endsWith(".tif") ||filename.endsWith(".jpg") || filename.endsWith(".wmv"));
+    };
 
 }

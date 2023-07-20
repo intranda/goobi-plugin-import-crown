@@ -23,5 +23,7 @@
             <identifier>CatalogIDDigital</identifier>
         </metadata>
 
+        <images>/opt/digiverso/import/crown/</images>
+
 	</config>
 </config_plugin>
