@@ -197,7 +197,8 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
         IEadEntry lastElement = rootEntry;
 
         // open excel file
-        try (InputStream fileInputStream = new FileInputStream(file); BOMInputStream in = new BOMInputStream(fileInputStream, false);
+        try (InputStream fileInputStream = new FileInputStream(file); BOMInputStream in =
+                BOMInputStream.builder().setInputStream(fileInputStream).setInclude(false).get();
                 Workbook wb = WorkbookFactory.create(in)) {
             Sheet sheet = wb.getSheetAt(0);
             Iterator<Row> rowIterator = sheet.rowIterator();
@@ -393,19 +394,41 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
 
             // copy images
             if (filesToImport != null) {
-                Path imageBasePath = Paths.get(metsFileName.replace(".xml", ""), "images", processTitle +"_media");
+                Path imageBasePath = Paths.get(metsFileName.replace(".xml", ""), "images", processTitle + "_media");
                 try {
                     StorageProvider.getInstance().createDirectories(imageBasePath);
-                    // TODO filter files
+
                     for (Path fileToCopy : filesToImport) {
-                        StorageProvider.getInstance().copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
+                        String filename = fileToCopy.getFileName().toString();
+
+                        if (filename.endsWith(".jpg")) {
+                            // in case of jpg check if a tif with the same name exists
+                            String tifFilename = filename.replace(".jpg", ".tif");
+                            boolean tifExists = false;
+                            for (Path fileToCheck : filesToImport) {
+                                String filenameToCheck = fileToCheck.getFileName().toString();
+                                if (tifFilename.equals(filenameToCheck)) {
+                                    // if this is the case, use the tif instead and skip this jpg
+                                    tifExists = true;
+                                    break;
+                                }
+                            }
+
+                            // otherwise copy the jpg
+                            if (!tifExists) {
+                                StorageProvider.getInstance()
+                                        .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
+                            }
+                        } else {
+                            // always copy other file formats
+                            StorageProvider.getInstance()
+                                    .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
+                        }
                     }
                 } catch (IOException e) {
                     log.error(e);
                 }
             }
-
-
 
             io.setImportReturnValue(ImportReturnValue.ExportFinished);
             answer.add(io);
@@ -506,7 +529,7 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
 
     public static final DirectoryStream.Filter<Path> fileFilter = path -> {
         String filename = path.getFileName().toString();
-        return !filename.contains("komprimiert") && (filename.endsWith(".tif") ||filename.endsWith(".jpg") || filename.endsWith(".wmv"));
+        return !filename.contains("komprimiert") && (filename.endsWith(".tif") || filename.endsWith(".jpg") || filename.endsWith(".wmv"));
     };
 
 }
