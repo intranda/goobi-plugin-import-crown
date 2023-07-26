@@ -197,8 +197,8 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
         IEadEntry lastElement = rootEntry;
 
         // open excel file
-        try (InputStream fileInputStream = new FileInputStream(file); BOMInputStream in =
-                BOMInputStream.builder().setInputStream(fileInputStream).setInclude(false).get();
+        try (InputStream fileInputStream = new FileInputStream(file);
+                BOMInputStream in = BOMInputStream.builder().setInputStream(fileInputStream).setInclude(false).get();
                 Workbook wb = WorkbookFactory.create(in)) {
             Sheet sheet = wb.getSheetAt(0);
             Iterator<Row> rowIterator = sheet.rowIterator();
@@ -400,29 +400,49 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
 
                     for (Path fileToCopy : filesToImport) {
                         String filename = fileToCopy.getFileName().toString();
+                        boolean containsEdited = false;
+                        boolean betterFileExists = false;
+                        if (filename.contains("bearbeitet")) {
+                            containsEdited = true;
+                        }
+
+                        // check if edited version exists
+                        if (!containsEdited && (filename.endsWith(".jpg") || filename.endsWith(".tif"))) {
+                            String editFileName = filename.replace(".jpg", "").replace(".tif", "") + "_bearbeitet.tif";
+                            for (Path fileToCheck : filesToImport) {
+                                String filenameToCheck = fileToCheck.getFileName().toString();
+                                if (editFileName.equals(filenameToCheck)) {
+                                    // if this is the case, use the tif instead and skip this jpg
+                                    betterFileExists = true;
+                                    break;
+                                }
+                            }
+                        }
 
                         if (filename.endsWith(".jpg")) {
                             // in case of jpg check if a tif with the same name exists
+                            //                            String basename = filename.replace(".jpg", "");
                             String tifFilename = filename.replace(".jpg", ".tif");
-                            boolean tifExists = false;
+
                             for (Path fileToCheck : filesToImport) {
                                 String filenameToCheck = fileToCheck.getFileName().toString();
                                 if (tifFilename.equals(filenameToCheck)) {
                                     // if this is the case, use the tif instead and skip this jpg
-                                    tifExists = true;
+                                    betterFileExists = true;
                                     break;
                                 }
+                                // else check if a file starting with the same name exists containing "_bearbeitet"
                             }
 
                             // otherwise copy the jpg
-                            if (!tifExists) {
+                            if (!betterFileExists) {
                                 StorageProvider.getInstance()
-                                        .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
+                                .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
                             }
                         } else {
                             // always copy other file formats
                             StorageProvider.getInstance()
-                                    .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
+                            .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
                         }
                     }
                 } catch (IOException e) {
