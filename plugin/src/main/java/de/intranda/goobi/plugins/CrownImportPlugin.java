@@ -115,6 +115,7 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
     // metadata information
     private String docType;
     private String identifierMetadata;
+    private String descriptionMetadata;
     private String titleMetadata;
 
     private String imageRootFolder;
@@ -151,6 +152,7 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
             docType = myconfig.getString("/metadata/doctype", "Monograph");
             identifierMetadata = myconfig.getString("/metadata/identifier", "CatalogIDDigital");
             titleMetadata = myconfig.getString("/metadata/title", "TitleDocMain");
+            descriptionMetadata = myconfig.getString("/metadata/description", "ContentDescription");
 
             imageRootFolder = myconfig.getString("/images");
         }
@@ -307,12 +309,15 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
         for (IMetadataField field : entry.getIdentityStatementAreaList()) {
             if ("unittitle".equals(field.getName())) {
                 FieldValue value = new FieldValue(field);
-                value.setValue(label);
+                value.setValue(label + " - " + identifier);
                 field.setValues(Arrays.asList(value));
-            }
-            if ("Shelfmark".equalsIgnoreCase(field.getName())) {
+            } else if ("Shelfmark".equalsIgnoreCase(field.getName())) {
                 FieldValue value = new FieldValue(field);
                 value.setValue(identifier);
+                field.setValues(Arrays.asList(value));
+            } else if ("scopecontent".equalsIgnoreCase(field.getName())) {
+                FieldValue value = new FieldValue(field);
+                value.setValue(label);
                 field.setValues(Arrays.asList(value));
             }
         }
@@ -372,8 +377,12 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                 idMetadata.setValue(rec.getId());
                 logical.addMetadata(idMetadata);
 
+                Metadata desc = new Metadata(prefs.getMetadataTypeByName(descriptionMetadata));
+                desc.setValue(rec.getData());
+                logical.addMetadata(desc);
+
                 Metadata mainTitle = new Metadata(prefs.getMetadataTypeByName(titleMetadata));
-                mainTitle.setValue(rec.getData());
+                mainTitle.setValue(rec.getData() + " - " + rec.getId());
                 logical.addMetadata(mainTitle);
 
                 MetadataType eadIdType = prefs.getMetadataTypeByName("NodeId");
@@ -421,7 +430,6 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
 
                         if (filename.endsWith(".jpg")) {
                             // in case of jpg check if a tif with the same name exists
-                            //                            String basename = filename.replace(".jpg", "");
                             String tifFilename = filename.replace(".jpg", ".tif");
 
                             for (Path fileToCheck : filesToImport) {
@@ -437,12 +445,12 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                             // otherwise copy the jpg
                             if (!betterFileExists) {
                                 StorageProvider.getInstance()
-                                .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
+                                        .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
                             }
                         } else {
                             // always copy other file formats
                             StorageProvider.getInstance()
-                            .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
+                                    .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
                         }
                     }
                 } catch (IOException e) {

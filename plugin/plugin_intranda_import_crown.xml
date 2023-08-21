@@ -1,6 +1,5 @@
 <config_plugin>
 	<config>
-
 		<!-- which workflow template shall be used -->
 		<template>*</template>
 
@@ -21,9 +20,9 @@
             <doctype>Monograph</doctype>
             <title>TitleDocMain</title>
             <identifier>CatalogIDDigital</identifier>
+            <description>ContentDescription</description>
         </metadata>
 
         <images>/opt/digiverso/import/crown/</images>
-
 	</config>
 </config_plugin>
