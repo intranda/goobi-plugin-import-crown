@@ -17,7 +17,7 @@
 
 		<!-- metadata --> 
         <metadata>
-            <doctype>Monograph</doctype>
+            <doctype>Other</doctype>
             <title>TitleDocMain</title>
             <identifier>CatalogIDDigital</identifier>
             <description>ContentDescription</description>
