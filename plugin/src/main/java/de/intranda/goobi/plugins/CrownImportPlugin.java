@@ -341,10 +341,14 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
         // collect all image folder
         Map<String, Path> allImageFolder = new HashMap<>();
 
-        try (Stream<Path> stream = Files.find(Paths.get(imageRootFolder), 10, (p, attr) -> attr.isDirectory())) {
-            stream.forEach(p -> allImageFolder.put(p.getFileName().toString(), p));
-        } catch (IOException e) {
-            log.error(e);
+        Path folder = Paths.get(imageRootFolder);
+        if (StorageProvider.getInstance().isDirectory(folder)) {
+
+            try (Stream<Path> stream = Files.find(folder, 10, (p, attr) -> attr.isDirectory())) {
+                stream.forEach(p -> allImageFolder.put(p.getFileName().toString(), p));
+            } catch (IOException e) {
+                log.error(e);
+            }
         }
 
         List<ImportObject> answer = new ArrayList<>();
@@ -445,12 +449,12 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                             // otherwise copy the jpg
                             if (!betterFileExists) {
                                 StorageProvider.getInstance()
-                                        .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
+                                .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
                             }
                         } else {
                             // always copy other file formats
                             StorageProvider.getInstance()
-                                    .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
+                            .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
                         }
                     }
                 } catch (IOException e) {
