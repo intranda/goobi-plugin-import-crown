@@ -1,28 +1,66 @@
 <config_plugin>
-	<config>
-		<!-- which workflow template shall be used -->
-		<template>*</template>
+    <config>
+        <!-- which workflow template shall be used -->
+        <template>*</template>
 
-		<!-- define if import shall use GoobiScript to run in the background -->
-		<runAsGoobiScript>true</runAsGoobiScript>
-		
-		<!-- first data row in excel file -->
-		<startRow>7</startRow>
+        <!-- define if import shall use GoobiScript to run in the background -->
+        <runAsGoobiScript>true</runAsGoobiScript>
 
-		<!-- basex database name and file name -->
+
+        <!-- first data row in excel file -->
+        <startRow>7</startRow>
+        <!-- row number of the header row, leave it blank if file has no header -->
+        <headerRow>1</headerRow>
+
+        <!-- basex database name and file name -->
         <basex>
             <database>basexdb</database>
             <filename>crown.xml</filename>
         </basex>
 
-		<!-- metadata --> 
+        <!-- metadata -->
         <metadata>
+            <!-- document type for the process -->
             <doctype>Other</doctype>
-            <title>TitleDocMain</title>
-            <identifier>CatalogIDDigital</identifier>
-            <description>ContentDescription</description>
+
+            <!-- process title metatada -->
+            <!-- can be generated from other fields like "CatalogIDDigital + '_' +
+            ContentDescription"  -->
+            <title rule="CatalogIDDigital + ' ' + ContentDescription">TitleDocMain</title>
+
+            <!-- process identifier metadata -->
+            <!-- if enabled is set to false, the field is not searched in the hierarchical part. In this case, a
+            separate configuration for the fixed area can exist -->
+            <firstField enabled="true" eadField="unittitle" metadataField="TitleDocMain" />
+
+            <!-- title/label field -->  
+            <!-- if enabled is set to false, the field is not searched in the hierarchical part. In this case, a
+            separate configuration for the fixed area can exist -->
+            <secondField enabled="false" eadField="RecordID" metadataField="CatalogIDDigital" />
+            
+            <!-- fixed metadata -->
+            <metadata column="Reference code(s)" eadField="UnitID" metadataField="CatalogIDDigital" />
+            <!-- <metadata column="Title" eadField="???" metadataField="TitleDocSub"/> -->
+            <metadata column="Physical characteristics and technical requirements" eadField="phystech" metadataField="PhysTech" />
+            <metadata column="Extent and medium of the unit of description" eadField="physdesc" metadataField="Format" />
+
+            <metadata column="Scope and content" eadField="scopecontent" metadataField="ContentDescription" />
+            <metadata column="Administrative/Biographical History" eadField="bioghist" metadataField="BiographicalInformation" />
+            <metadata column="Note" eadField="didnote" metadataField="DidNote" />
+            <metadata column="Archival History" eadField="custodhist" metadataField="InventoryHistory" />
+            <metadata column="Date(s)" eadField="unitdate" metadataField="PublicationYear" />
+            <!-- <metadata column="Subject terms" eadField="???" metadataField="SubjectTopic"/> -->
+            <metadata column="Name of Creator(s)" eadField="origination" metadataField="Provenience" />
+            <metadata column="Immediate source of acquisition or transfer" eadField="acqinfo" metadataField="AquisitionInformation" />
+            <metadata column="Language | Scripts of material" eadField="langmaterial" metadataField="DocLanguage" />
+            <metadata column="Related units of description" eadField="separatedmaterial" metadataField="SeparatedMaterial" />
+            <metadata column="Conditions governing access" eadField="accessrestrict" metadataField="AccessLicenseWork" />
+            <metadata column="Conditions governing reproduction" eadField="userestrict" metadataField="UseRestriction" />
+            <metadata column="Existence and location of originals" eadField="originalsloc" metadataField="OriginalsLocation" />
         </metadata>
 
+        <!-- image folder name. Sub folder are organized by the identifier metadata -->
         <images>/opt/digiverso/import/crown/</images>
-	</config>
+
+    </config>
 </config_plugin>
