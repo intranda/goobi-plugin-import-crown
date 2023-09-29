@@ -18,45 +18,66 @@
             <filename>crown.xml</filename>
         </basex>
 
+       
+
         <!-- metadata -->
         <metadata>
-            <!-- document type for the process -->
+            <!-- document type for the process, can be a fixed value or a column header name -->
             <doctype>Other</doctype>
 
+            <!-- column header for the node type, leave it empty when a fixed type should be used (file for nodes with processes, folder for all other)  -->
+            <nodetype>Level of description</nodetype>
+            
             <!-- process title metatada -->
             <!-- can be generated from other fields like "CatalogIDDigital + '_' +
             ContentDescription"  -->
             <title rule="CatalogIDDigital + ' ' + ContentDescription">TitleDocMain</title>
 
-            <!-- process identifier metadata -->
-            <!-- if enabled is set to false, the field is not searched in the hierarchical part. In this case, a
-            separate configuration for the fixed area can exist -->
-            <firstField enabled="true" eadField="unittitle" metadataField="TitleDocMain" />
 
-            <!-- title/label field -->  
+            <!--    
+                - @eadField: name of the field in ead record
+                - metadataField: name of the metadata field in mets file
+                - @level: metadata level, allowed values are 1-7:
+                    * 1: metadata for Identity Statement Area 
+                    * 2: Context Area 
+                    * 3: Content and Structure Area
+                    * 4: Condition of Access and Use Area
+                    * 5: Allied Materials Area
+                    * 6: Note Area
+                    * 7: Description Control Area 
+                    -->
+
+            <firstField metadataField="TitleDocMain" eadField="unittitle" level="1" />
+
             <!-- if enabled is set to false, the field is not searched in the hierarchical part. In this case, a
             separate configuration for the fixed area can exist -->
-            <secondField enabled="false" eadField="RecordID" metadataField="CatalogIDDigital" />
+            <secondField enabled="false" eadField="RecordID" metadataField="CatalogIDDigital" level="1" identifier="true"/>
             
             <!-- fixed metadata -->
-            <metadata column="Reference code(s)" eadField="UnitID" metadataField="CatalogIDDigital" />
-            <!-- <metadata column="Title" eadField="???" metadataField="TitleDocSub"/> -->
-            <metadata column="Physical characteristics and technical requirements" eadField="phystech" metadataField="PhysTech" />
-            <metadata column="Extent and medium of the unit of description" eadField="physdesc" metadataField="Format" />
+            <additionalField column="Level of description" eadField="descriptionLevel" level="1"/>
+            <additionalField column="Reference code(s)" eadField="UnitID" metadataField="CatalogIDDigital" level="1"/>
+            
+            
+            <additionalField column="Title" eadField="???" metadataField="singleDigCollecion" level="1"/>
+            
+            
+            
+            <additionalField column="Physical characteristics and technical requirements" eadField="phystech" metadataField="PhysTech" level="4"/>
+            <additionalField column="Extent and medium of the unit of description" eadField="physdesc" metadataField="Format" level="1" />
 
-            <metadata column="Scope and content" eadField="scopecontent" metadataField="ContentDescription" />
-            <metadata column="Administrative/Biographical History" eadField="bioghist" metadataField="BiographicalInformation" />
-            <metadata column="Note" eadField="didnote" metadataField="DidNote" />
-            <metadata column="Archival History" eadField="custodhist" metadataField="InventoryHistory" />
-            <metadata column="Date(s)" eadField="unitdate" metadataField="PublicationYear" />
-            <!-- <metadata column="Subject terms" eadField="???" metadataField="SubjectTopic"/> -->
-            <metadata column="Name of Creator(s)" eadField="origination" metadataField="Provenience" />
-            <metadata column="Immediate source of acquisition or transfer" eadField="acqinfo" metadataField="AquisitionInformation" />
-            <metadata column="Language | Scripts of material" eadField="langmaterial" metadataField="DocLanguage" />
-            <metadata column="Related units of description" eadField="separatedmaterial" metadataField="SeparatedMaterial" />
-            <metadata column="Conditions governing access" eadField="accessrestrict" metadataField="AccessLicenseWork" />
-            <metadata column="Conditions governing reproduction" eadField="userestrict" metadataField="UseRestriction" />
-            <metadata column="Existence and location of originals" eadField="originalsloc" metadataField="OriginalsLocation" />
+            <additionalField column="Scope and content" eadField="scopecontent" metadataField="ContentDescription" level="3"/>
+            <additionalField column="Administrative/Biographical History" eadField="bioghist" metadataField="BiographicalInformation" level="2"/>
+            <additionalField column="Note" eadField="didnote" metadataField="DidNote" level="6"/>
+            <additionalField column="Archival History" eadField="custodhist" metadataField="InventoryHistory" level="2"/>
+            <additionalField column="Date(s)" eadField="unitdate" metadataField="PublicationYear" level="1"/>
+            <!-- <additionalField column="Subject terms" metadataField="SubjectTopic"  eadField="???" level="1"/> -->
+            <additionalField column="Name of Creator(s)" eadField="origination" metadataField="Provenience" level="2"/>
+            <additionalField column="Immediate source of acquisition or transfer" eadField="acqinfo" metadataField="AquisitionInformation" level="2"/>
+            <additionalField column="Language | Scripts of material" eadField="langmaterial" metadataField="DocLanguage" level="4"/>
+            <additionalField column="Related units of description" eadField="separatedmaterial" metadataField="SeparatedMaterial" level="5"/>
+            <additionalField column="Conditions governing access" eadField="accessrestrict" metadataField="AccessLicenseWork" level="4"/>
+            <additionalField column="Conditions governing reproduction" eadField="userestrict" metadataField="UseRestriction" level="4"/>
+            <additionalField column="Existence and location of originals" eadField="originalsloc" metadataField="OriginalsLocation" level="5"/>
         </metadata>
 
         <!-- image folder name. Sub folder are organized by the identifier metadata -->

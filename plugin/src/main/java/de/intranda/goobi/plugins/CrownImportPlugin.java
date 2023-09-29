@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
+import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.configuration.SubnodeConfiguration;
 import org.apache.commons.configuration.XMLConfiguration;
 import org.apache.commons.configuration.reloading.FileChangedReloadingStrategy;
@@ -24,6 +25,7 @@ import org.apache.commons.io.input.BOMInputStream;
 import org.apache.commons.lang.StringUtils;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Row.MissingCellPolicy;
@@ -114,11 +116,16 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
 
     // metadata information
     private String docType;
-    private String identifierMetadata;
-    private String descriptionMetadata;
-    private String titleMetadata;
 
     private String imageRootFolder;
+
+    private String nodeTypeColumnName = null;
+    private int headerRowNumber;
+
+    private transient List<MetadataColumn> columnList = new ArrayList<>();
+
+    private transient MetadataColumn firstColumn = null;
+    private transient MetadataColumn secondColumn = null;
 
     /**
      * define what kind of import plugin this is
@@ -145,16 +152,48 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
 
         if (myconfig != null) {
             runAsGoobiScript = myconfig.getBoolean("/runAsGoobiScript", false);
+            imageRootFolder = myconfig.getString("/images");
+
             eadFileName = myconfig.getString("/basex/filename");
             databaseName = myconfig.getString("/basex/database");
+
             startRow = myconfig.getInt("/startRow", 0);
+            headerRowNumber = myconfig.getInt("/headerRow", 0);
 
+            nodeTypeColumnName = myconfig.getString("/nodetype");
             docType = myconfig.getString("/metadata/doctype", "Monograph");
-            identifierMetadata = myconfig.getString("/metadata/identifier", "CatalogIDDigital");
-            titleMetadata = myconfig.getString("/metadata/title", "TitleDocMain");
-            descriptionMetadata = myconfig.getString("/metadata/description", "ContentDescription");
 
-            imageRootFolder = myconfig.getString("/images");
+            SubnodeConfiguration firstFieldDefinition = myconfig.configurationAt("/metadata/firstField");
+
+            firstColumn = new MetadataColumn();
+            firstColumn.setRulesetName(firstFieldDefinition.getString("@metadataField"));
+            firstColumn.setEadName(firstFieldDefinition.getString("@eadField"));
+            firstColumn.setLevel(firstFieldDefinition.getInt("@level", 0));
+            firstColumn.setIdentifierField(firstFieldDefinition.getBoolean("@identifier", false));
+
+            SubnodeConfiguration secondFieldDefinition = myconfig.configurationAt("/metadata/secondField");
+            if (secondFieldDefinition.getBoolean("@enabled")) {
+                secondColumn = new MetadataColumn();
+                secondColumn.setRulesetName(secondFieldDefinition.getString("@metadataField"));
+                secondColumn.setEadName(secondFieldDefinition.getString("@eadField"));
+                secondColumn.setLevel(firstFieldDefinition.getInt("@level", 0));
+                secondColumn.setIdentifierField(secondFieldDefinition.getBoolean("@identifier", false));
+            }
+
+            columnList.clear();
+
+            for (HierarchicalConfiguration field : myconfig.configurationsAt("/metadata/additionalField")) {
+                MetadataColumn mc = new MetadataColumn();
+                mc.setRulesetName(field.getString("@metadataField"));
+                mc.setEadName(field.getString("@eadField"));
+                mc.setLevel(firstFieldDefinition.getInt("@level", 0));
+                mc.setIdentifierField(field.getBoolean("@identifier", false));
+                columnList.add(mc);
+
+            }
+
+            // process title generation rule, needed?
+
         }
     }
 
@@ -204,8 +243,32 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                 Workbook wb = WorkbookFactory.create(in)) {
             Sheet sheet = wb.getSheetAt(0);
             Iterator<Row> rowIterator = sheet.rowIterator();
+
+            Row headerRow = null;
+            if (headerRowNumber != 0) {
+                while (rowCounter < headerRowNumber - 1) {
+                    rowCounter++;
+                    headerRow = rowIterator.next();
+                }
+            }
+
+            Map<String, Integer> headerOrder = new HashMap<>();
+
+            if (headerRow != null) {
+                //  read and validate the header row
+                int numberOfCells = headerRow.getLastCellNum();
+                for (int i = 0; i < numberOfCells; i++) {
+                    Cell cell = headerRow.getCell(i);
+                    if (cell != null) {
+                        cell.setCellType(CellType.STRING);
+                        String value = cell.getStringCellValue();
+                        headerOrder.put(value, i);
+                    }
+                }
+            }
+
             // go to first data row
-            while (rowCounter < startRow - 1) {
+            while (rowCounter < startRow - 1 - headerRowNumber) {
                 rowCounter++;
                 rowIterator.next();
             }
@@ -220,9 +283,10 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                 }
 
                 int hierarchy = 0;
-                String identifier = null;
-                String label = null;
+                String firstColumnValue = null;
+                String secondColumnValue = null;
                 boolean createProcess = false;
+                Map<Integer, String> map = new HashMap<>();
 
                 for (int cellCounter = 0; cellCounter < lastColumn; cellCounter++) {
                     Cell cell = row.getCell(cellCounter, MissingCellPolicy.CREATE_NULL_AS_BLANK);
@@ -231,8 +295,8 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                         continue;
                     }
                     // we found content
-                    if (StringUtils.isBlank(identifier)) {
-                        identifier = cell.getStringCellValue();
+                    if (StringUtils.isBlank(firstColumnValue)) {
+                        firstColumnValue = cell.getStringCellValue();
                         hierarchy = cellCounter;
                         // check if value is bold
                         CellStyle cs = cell.getCellStyle();
@@ -241,22 +305,30 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                         if (font.getBold()) {
                             createProcess = true;
                         }
-                    } else {
-                        label = cell.getStringCellValue();
+                    } else if (StringUtils.isBlank(secondColumnValue)) {
+                        secondColumnValue = cell.getStringCellValue();
                     }
+                }
+
+                // get other columns
+                for (int cn = 0; cn < lastColumn; cn++) {
+                    map.put(cn, getCellValue(row, cn));
                 }
 
                 if (createProcess) {
                     Record rec = new Record();
-                    rec.setData(label);
-                    rec.setId(identifier);
-                    rec.setObject(hierarchy);
+                    rec.setData(secondColumnValue);
+                    rec.setId(firstColumnValue);
+                    List<Map<?, ?>> list = new ArrayList<>();
+                    list.add(headerOrder);
+                    list.add(map);
+                    rec.setObject(list);
                     recordList.add(rec);
                 }
 
                 if (hierarchy == 0) {
                     // root element
-                    createEadMetadata(lastElement, identifier, label, createProcess);
+                    createEadMetadata(lastElement, firstColumnValue, secondColumnValue, createProcess, map, headerOrder);
                 } else {
                     IEadEntry parentNode = null;
 
@@ -282,14 +354,25 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                     lastElement = archivePlugin.getSelectedEntry();
 
                     // set node type
-                    if (createProcess) {
+                    if (nodeTypeColumnName != null && headerOrder.containsKey(nodeTypeColumnName)) {
+                        String nodeName = map.get(headerOrder.get(nodeTypeColumnName));
+                        for (INodeType nodeType : archivePlugin.getConfiguredNodes()) {
+                            if (nodeType.getNodeName().equalsIgnoreCase(nodeName)) {
+                                lastElement.setNodeType(nodeType);
+                                break;
+                            }
+                        }
+                    } else if (createProcess) {
                         lastElement.setNodeType(fileType);
                     } else {
                         lastElement.setNodeType(folderType);
                     }
-
+                    // no node type found, use default value
+                    if (lastElement.getNodeType() == null) {
+                        lastElement.setNodeType(folderType);
+                    }
                     // set metadata
-                    createEadMetadata(lastElement, identifier, label, createProcess);
+                    createEadMetadata(lastElement, firstColumnValue, secondColumnValue, createProcess, map, headerOrder);
                 }
             }
 
@@ -304,28 +387,124 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
         return recordList;
     }
 
-    private void createEadMetadata(IEadEntry entry, String identifier, String label, boolean createProcess) {
+    private void createEadMetadata(IEadEntry entry, String firstValue, String secondValue, boolean createProcess, Map<Integer, String> data,
+            Map<String, Integer> headerMap) {
         // add identifier and label
-        for (IMetadataField field : entry.getIdentityStatementAreaList()) {
-            if ("unittitle".equals(field.getName())) {
-                FieldValue value = new FieldValue(field);
-                value.setValue(label + " - " + identifier);
-                field.setValues(Arrays.asList(value));
-            } else if ("Shelfmark".equalsIgnoreCase(field.getName())) {
-                FieldValue value = new FieldValue(field);
-                value.setValue(identifier);
-                field.setValues(Arrays.asList(value));
-            } else if ("scopecontent".equalsIgnoreCase(field.getName())) {
-                FieldValue value = new FieldValue(field);
-                value.setValue(label);
-                field.setValues(Arrays.asList(value));
+
+        if (StringUtils.isNotBlank(firstColumn.getEadName())) {
+            addMetadataToNode(entry, firstColumn, firstValue);
+        }
+
+        if (secondColumn != null &&
+                StringUtils.isNotBlank(secondColumn.getEadName())) {
+            addMetadataToNode(entry, secondColumn, secondValue);
+
+        }
+
+        for (MetadataColumn col : columnList) {
+            String metadataValue = data.get(headerMap.get(col.getExcelColumnName()));
+            addMetadataToNode(entry, col, metadataValue);
+        }
+
+        // identifierField
+
+        if (firstColumn.isIdentifierField()) {
+            entry.setId(firstValue);
+        } else if (secondColumn != null && secondColumn.isIdentifierField()) {
+            entry.setId(secondValue);
+        } else {
+            for (MetadataColumn col : columnList) {
+                if (col.isIdentifierField()) {
+                    entry.setId(data.get(headerMap.get(col.getExcelColumnName())));
+                }
             }
         }
-        entry.setId(identifier);
         if (createProcess) {
-            entry.setGoobiProcessTitle(identifier);
+            entry.setGoobiProcessTitle(entry.getId());
         }
-        entry.setLabel(label);
+        entry.setLabel(secondValue);
+    }
+
+    private void addMetadataToNode(IEadEntry entry, MetadataColumn column, String stringValue) {
+        if (StringUtils.isBlank(stringValue)) {
+            return;
+        }
+
+        switch (column.getLevel()) {
+            case 1:
+                for (IMetadataField field : entry.getIdentityStatementAreaList()) {
+                    if (field.getName().equals(column.getEadName())) {
+                        FieldValue value = new FieldValue(field);
+                        value.setValue(stringValue);
+                        field.setValues(Arrays.asList(value));
+                        return;
+                    }
+                }
+                break;
+            case 2:
+                for (IMetadataField field : entry.getContextAreaList()) {
+                    if (field.getName().equals(column.getEadName())) {
+                        FieldValue value = new FieldValue(field);
+                        value.setValue(stringValue);
+                        field.setValues(Arrays.asList(value));
+                        return;
+                    }
+                }
+                break;
+            case 3:
+                for (IMetadataField field : entry.getContentAndStructureAreaAreaList()) {
+                    if (field.getName().equals(column.getEadName())) {
+                        FieldValue value = new FieldValue(field);
+                        value.setValue(stringValue);
+                        field.setValues(Arrays.asList(value));
+                        return;
+                    }
+                }
+                break;
+            case 4:
+                for (IMetadataField field : entry.getAccessAndUseAreaList()) {
+                    if (field.getName().equals(column.getEadName())) {
+                        FieldValue value = new FieldValue(field);
+                        value.setValue(stringValue);
+                        field.setValues(Arrays.asList(value));
+                        return;
+                    }
+                }
+                break;
+            case 5:
+                for (IMetadataField field : entry.getAlliedMaterialsAreaList()) {
+                    if (field.getName().equals(column.getEadName())) {
+                        FieldValue value = new FieldValue(field);
+                        value.setValue(stringValue);
+                        field.setValues(Arrays.asList(value));
+                        return;
+                    }
+                }
+
+                break;
+            case 6:
+                for (IMetadataField field : entry.getNotesAreaList()) {
+                    if (field.getName().equals(column.getEadName())) {
+                        FieldValue value = new FieldValue(field);
+                        value.setValue(stringValue);
+                        field.setValues(Arrays.asList(value));
+                        return;
+                    }
+                }
+                break;
+            case 7:
+                for (IMetadataField field : entry.getDescriptionControlAreaList()) {
+                    if (field.getName().equals(column.getEadName())) {
+                        FieldValue value = new FieldValue(field);
+                        value.setValue(stringValue);
+                        field.setValues(Arrays.asList(value));
+                        return;
+                    }
+                }
+                break;
+            default:
+                break;
+        }
     }
 
     /**
@@ -354,7 +533,23 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
         List<ImportObject> answer = new ArrayList<>();
 
         for (Record rec : records) {
-            String processTitle = rec.getId().toLowerCase().replaceAll("\\W", "_");
+            String firstCol = rec.getId();
+            String secondCol = rec.getData();
+            Map<String, Integer> headerMap = getHeaderOrder(rec);
+            Map<Integer, String> data = getRowMap(rec);
+
+            String identifier = null;
+            if (firstColumn.isIdentifierField()) {
+                identifier = firstCol;
+            } else if (secondColumn != null && secondColumn.isIdentifierField()) {
+                identifier = secondCol;
+            } else {
+                for (MetadataColumn col : columnList) {
+                    if (col.isIdentifierField()) {
+                        identifier = data.get(headerMap.get(col.getExcelColumnName()));
+                    }
+                }
+            }
 
             Path currentImageFolder = allImageFolder.get(rec.getId());
             List<Path> filesToImport = null;
@@ -362,7 +557,7 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                 filesToImport = StorageProvider.getInstance().listFiles(currentImageFolder.toString(), fileFilter);
             }
 
-            String metsFileName = getImportFolder() + File.separator + processTitle + ".xml";
+            String metsFileName = getImportFolder() + File.separator + identifier + ".xml";
             try {
                 Fileformat fileformat = new MetsMods(prefs);
                 DigitalDocument digDoc = new DigitalDocument();
@@ -377,22 +572,32 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                 imagePath.setValue("./images/");
                 physical.addMetadata(imagePath);
 
-                Metadata idMetadata = new Metadata(prefs.getMetadataTypeByName(identifierMetadata));
+                Metadata idMetadata = new Metadata(prefs.getMetadataTypeByName(firstColumn.getRulesetName()));
                 idMetadata.setValue(rec.getId());
                 logical.addMetadata(idMetadata);
 
-                Metadata desc = new Metadata(prefs.getMetadataTypeByName(descriptionMetadata));
-                desc.setValue(rec.getData());
-                logical.addMetadata(desc);
+                if (secondColumn != null && StringUtils.isNotBlank(rec.getData())) {
+                    Metadata desc = new Metadata(prefs.getMetadataTypeByName(secondColumn.getRulesetName()));
+                    desc.setValue(rec.getData());
+                    logical.addMetadata(desc);
+                }
 
-                Metadata mainTitle = new Metadata(prefs.getMetadataTypeByName(titleMetadata));
-                mainTitle.setValue(rec.getData() + " - " + rec.getId());
-                logical.addMetadata(mainTitle);
+                // additional metadata
+                for (MetadataColumn col : columnList) {
+                    if (StringUtils.isNotBlank(col.getRulesetName())) {
+                        String value = data.get(headerMap.get(col.getExcelColumnName()));
+                        if (StringUtils.isNotBlank(value)) {
+                            Metadata meta = new Metadata(prefs.getMetadataTypeByName(col.getRulesetName()));
+                            meta.setValue(value);
+                            logical.addMetadata(meta);
+                        }
+                    }
+                }
 
                 MetadataType eadIdType = prefs.getMetadataTypeByName("NodeId");
                 if (eadIdType != null) {
                     Metadata eadId = new Metadata(eadIdType);
-                    eadId.setValue(rec.getId());
+                    eadId.setValue(identifier);
                     logical.addMetadata(eadId);
                 }
                 fileformat.write(metsFileName);
@@ -402,12 +607,12 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
 
             // create process data
             ImportObject io = new ImportObject();
-            io.setProcessTitle(processTitle);
+            io.setProcessTitle(identifier);
             io.setMetsFilename(metsFileName);
 
             // copy images
             if (filesToImport != null) {
-                Path imageBasePath = Paths.get(metsFileName.replace(".xml", ""), "images", processTitle + "_media");
+                Path imageBasePath = Paths.get(metsFileName.replace(".xml", ""), "images", identifier + "_media");
                 try {
                     StorageProvider.getInstance().createDirectories(imageBasePath);
 
@@ -449,12 +654,12 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                             // otherwise copy the jpg
                             if (!betterFileExists) {
                                 StorageProvider.getInstance()
-                                .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
+                                        .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
                             }
                         } else {
                             // always copy other file formats
                             StorageProvider.getInstance()
-                            .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
+                                    .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
                         }
                     }
                 } catch (IOException e) {
@@ -563,5 +768,41 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
         String filename = path.getFileName().toString();
         return !filename.contains("komprimiert") && (filename.endsWith(".tif") || filename.endsWith(".jpg") || filename.endsWith(".wmv"));
     };
+
+    public String getCellValue(Row row, int columnIndex) {
+        Cell cell = row.getCell(columnIndex, MissingCellPolicy.CREATE_NULL_AS_BLANK);
+        String value = "";
+        switch (cell.getCellType()) {
+            case BOOLEAN:
+                value = cell.getBooleanCellValue() ? "true" : "false";
+                break;
+            case FORMULA:
+                value = cell.getRichStringCellValue().getString();
+                break;
+            case NUMERIC:
+                value = String.valueOf((long) cell.getNumericCellValue());
+                break;
+            case STRING:
+                value = cell.getStringCellValue();
+                break;
+            default:
+                // none, error, blank
+                value = "";
+                break;
+        }
+        return value;
+    }
+
+    public Map<Integer, String> getRowMap(Record rec) {
+        Object tempObject = rec.getObject();
+        List<Map<?, ?>> list = (List<Map<?, ?>>) tempObject;
+        return (Map<Integer, String>) list.get(1);
+    }
+
+    public Map<String, Integer> getHeaderOrder(Record rec) {
+        Object tempObject = rec.getObject();
+        List<Map<?, ?>> list = (List<Map<?, ?>>) tempObject;
+        return (Map<String, Integer>) list.get(0);
+    }
 
 }
