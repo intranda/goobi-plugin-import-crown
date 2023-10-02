@@ -8,7 +8,7 @@
 
 
         <!-- first data row in excel file -->
-        <startRow>7</startRow>
+        <startRow>2</startRow>
         <!-- row number of the header row, leave it blank if file has no header -->
         <headerRow>1</headerRow>
 
@@ -51,14 +51,14 @@
 
             <!-- if enabled is set to false, the field is not searched in the hierarchical part. In this case, a
             separate configuration for the fixed area can exist -->
-            <secondField enabled="false" eadField="RecordID" metadataField="CatalogIDDigital" level="1" identifier="true"/>
+            <secondField enabled="false" eadField="Shelfmark" metadataField="CatalogIDDigital" level="1" identifier="true"/>
             
             <!-- fixed metadata -->
             <additionalField column="Level of description" eadField="descriptionLevel" level="1"/>
-            <additionalField column="Reference code(s)" eadField="UnitID" metadataField="CatalogIDDigital" level="1"/>
+            <additionalField column="Reference code" eadField="unitid" metadataField="CatalogIDDigital" level="1"/>
             
             
-            <additionalField column="Title" eadField="???" metadataField="singleDigCollecion" level="1"/>
+            <additionalField column="Title" eadField="appraisal" metadataField="singleDigCollecion" level="3"/>
             
             
             
@@ -69,9 +69,9 @@
             <additionalField column="Administrative/Biographical History" eadField="bioghist" metadataField="BiographicalInformation" level="2"/>
             <additionalField column="Note" eadField="didnote" metadataField="DidNote" level="6"/>
             <additionalField column="Archival History" eadField="custodhist" metadataField="InventoryHistory" level="2"/>
-            <additionalField column="Date(s)" eadField="unitdate" metadataField="PublicationYear" level="1"/>
+            <additionalField column="Date" eadField="unitdate" metadataField="PublicationYear" level="1"/>
             <!-- <additionalField column="Subject terms" metadataField="SubjectTopic"  eadField="???" level="1"/> -->
-            <additionalField column="Name of Creator(s)" eadField="origination" metadataField="Provenience" level="2"/>
+            <additionalField column="Name of Creator" eadField="origination" metadataField="Provenience" level="2"/>
             <additionalField column="Immediate source of acquisition or transfer" eadField="acqinfo" metadataField="AquisitionInformation" level="2"/>
             <additionalField column="Language | Scripts of material" eadField="langmaterial" metadataField="DocLanguage" level="4"/>
             <additionalField column="Related units of description" eadField="separatedmaterial" metadataField="SeparatedMaterial" level="5"/>

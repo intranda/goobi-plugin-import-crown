@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.StringTokenizer;
 import java.util.stream.Stream;
 
 import org.apache.commons.configuration.HierarchicalConfiguration;
@@ -127,6 +128,8 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
     private transient MetadataColumn firstColumn = null;
     private transient MetadataColumn secondColumn = null;
 
+    private String processTitleRule;
+
     /**
      * define what kind of import plugin this is
      */
@@ -176,7 +179,7 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                 secondColumn = new MetadataColumn();
                 secondColumn.setRulesetName(secondFieldDefinition.getString("@metadataField"));
                 secondColumn.setEadName(secondFieldDefinition.getString("@eadField"));
-                secondColumn.setLevel(firstFieldDefinition.getInt("@level", 0));
+                secondColumn.setLevel(secondFieldDefinition.getInt("@level", 0));
                 secondColumn.setIdentifierField(secondFieldDefinition.getBoolean("@identifier", false));
             }
 
@@ -186,13 +189,14 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                 MetadataColumn mc = new MetadataColumn();
                 mc.setRulesetName(field.getString("@metadataField"));
                 mc.setEadName(field.getString("@eadField"));
-                mc.setLevel(firstFieldDefinition.getInt("@level", 0));
+                mc.setLevel(field.getInt("@level", 0));
                 mc.setIdentifierField(field.getBoolean("@identifier", false));
+                mc.setExcelColumnName(field.getString("@column"));
                 columnList.add(mc);
-
             }
 
-            // process title generation rule, needed?
+            // process title generation rule
+            processTitleRule = myconfig.getString("/metadata/title");
 
         }
     }
@@ -246,7 +250,7 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
 
             Row headerRow = null;
             if (headerRowNumber != 0) {
-                while (rowCounter < headerRowNumber - 1) {
+                while (rowCounter < headerRowNumber) {
                     rowCounter++;
                     headerRow = rowIterator.next();
                 }
@@ -260,15 +264,14 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                 for (int i = 0; i < numberOfCells; i++) {
                     Cell cell = headerRow.getCell(i);
                     if (cell != null) {
-                        cell.setCellType(CellType.STRING);
-                        String value = cell.getStringCellValue();
+                        String value = getCellValue(headerRow, i);
                         headerOrder.put(value, i);
                     }
                 }
             }
 
             // go to first data row
-            while (rowCounter < startRow - 1 - headerRowNumber) {
+            while (rowCounter < startRow - headerRowNumber) {
                 rowCounter++;
                 rowIterator.next();
             }
@@ -290,7 +293,7 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
 
                 for (int cellCounter = 0; cellCounter < lastColumn; cellCounter++) {
                     Cell cell = row.getCell(cellCounter, MissingCellPolicy.CREATE_NULL_AS_BLANK);
-                    if (cell == null || StringUtils.isBlank(cell.getStringCellValue())) {
+                    if (cell == null || cell.getCellType() == CellType.BLANK) {
                         // skip empty cell in order to find first column with content
                         continue;
                     }
@@ -395,8 +398,7 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
             addMetadataToNode(entry, firstColumn, firstValue);
         }
 
-        if (secondColumn != null &&
-                StringUtils.isNotBlank(secondColumn.getEadName())) {
+        if (secondColumn != null && StringUtils.isNotBlank(secondColumn.getEadName())) {
             addMetadataToNode(entry, secondColumn, secondValue);
 
         }
@@ -538,18 +540,26 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
             Map<String, Integer> headerMap = getHeaderOrder(rec);
             Map<Integer, String> data = getRowMap(rec);
 
-            String identifier = null;
-            if (firstColumn.isIdentifierField()) {
-                identifier = firstCol;
-            } else if (secondColumn != null && secondColumn.isIdentifierField()) {
-                identifier = secondCol;
-            } else {
-                for (MetadataColumn col : columnList) {
-                    if (col.isIdentifierField()) {
-                        identifier = data.get(headerMap.get(col.getExcelColumnName()));
-                    }
+            // processTitleRule
+
+            StringBuilder titleValue = new StringBuilder();
+            StringTokenizer tokenizer = new StringTokenizer(processTitleRule, "+");
+            while (tokenizer.hasMoreTokens()) {
+                String myString = tokenizer.nextToken().trim();
+                // get static text
+                if (myString.startsWith("'") && myString.endsWith("'")) {
+                    titleValue.append(myString.substring(1, myString.length() - 1));
+                } else if (myString.equals("first")) {
+                    titleValue.append(firstCol);
+                } else if (myString.equals("second")) {
+                    titleValue.append(secondCol);
+                } else {
+                    String s = data.get(headerMap.get(myString));
+                    titleValue.append(s != null ? s : "");
                 }
             }
+
+            String identifier = titleValue.toString().replaceAll("[\\W]", "_");
 
             Path currentImageFolder = allImageFolder.get(rec.getId());
             List<Path> filesToImport = null;
@@ -594,10 +604,23 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                     }
                 }
 
+                String nodeId = null;
+                if (firstColumn.isIdentifierField()) {
+                    nodeId = firstCol;
+                } else if (secondColumn != null && secondColumn.isIdentifierField()) {
+                    nodeId = secondCol;
+                } else {
+                    for (MetadataColumn col : columnList) {
+                        if (col.isIdentifierField()) {
+                            nodeId = data.get(headerMap.get(col.getExcelColumnName()));
+                        }
+                    }
+                }
+
                 MetadataType eadIdType = prefs.getMetadataTypeByName("NodeId");
                 if (eadIdType != null) {
                     Metadata eadId = new Metadata(eadIdType);
-                    eadId.setValue(identifier);
+                    eadId.setValue(nodeId);
                     logical.addMetadata(eadId);
                 }
                 fileformat.write(metsFileName);
@@ -654,12 +677,12 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                             // otherwise copy the jpg
                             if (!betterFileExists) {
                                 StorageProvider.getInstance()
-                                        .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
+                                .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
                             }
                         } else {
                             // always copy other file formats
                             StorageProvider.getInstance()
-                                    .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
+                            .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
                         }
                     }
                 } catch (IOException e) {
