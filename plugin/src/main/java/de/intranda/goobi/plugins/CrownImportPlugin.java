@@ -276,6 +276,12 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                 rowIterator.next();
             }
 
+            Integer identifierOrder = null;
+            for (MetadataColumn col : columnList) {
+                if (col.isIdentifierField()) {
+                    identifierOrder = headerOrder.get(col.getExcelColumnName());
+                }
+            }
             // read all lines
             while (rowIterator.hasNext()) {
                 Row row = rowIterator.next();
@@ -288,6 +294,7 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                 int hierarchy = 0;
                 String firstColumnValue = null;
                 String secondColumnValue = null;
+                String identifierValue = null;
                 boolean createProcess = false;
                 Map<Integer, String> map = new HashMap<>();
 
@@ -315,13 +322,18 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
 
                 // get other columns
                 for (int cn = 0; cn < lastColumn; cn++) {
-                    map.put(cn, getCellValue(row, cn));
+                    String cellValue = getCellValue(row, cn);
+                    if (identifierOrder != null && cn == identifierOrder.intValue()) {
+                        identifierValue = cellValue;
+                    }
+
+                    map.put(cn, cellValue);
                 }
 
                 if (createProcess) {
                     Record rec = new Record();
-                    rec.setData(secondColumnValue);
-                    rec.setId(firstColumnValue);
+                    rec.setData(firstColumnValue);
+                    rec.setId(identifierValue == null ? firstColumnValue : identifierValue);
                     List<Map<?, ?>> list = new ArrayList<>();
                     list.add(headerOrder);
                     list.add(map);

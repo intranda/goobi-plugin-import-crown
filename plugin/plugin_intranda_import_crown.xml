@@ -58,7 +58,7 @@
             <additionalField column="Reference code" eadField="unitid" metadataField="CatalogIDDigital" level="1"/>
             
             
-            <additionalField column="Title" eadField="appraisal" metadataField="singleDigCollecion" level="3"/>
+            <additionalField column="Title" eadField="appraisal" metadataField="singleDigCollection" level="3"/>
             
             
             
@@ -75,7 +75,7 @@
             <additionalField column="Immediate source of acquisition or transfer" eadField="acqinfo" metadataField="AquisitionInformation" level="2"/>
             <additionalField column="Language | Scripts of material" eadField="langmaterial" metadataField="DocLanguage" level="4"/>
             <additionalField column="Related units of description" eadField="separatedmaterial" metadataField="SeparatedMaterial" level="5"/>
-            <additionalField column="Conditions governing access" eadField="accessrestrict" metadataField="AccessLicenseWork" level="4"/>
+            <additionalField column="Conditions governing access" eadField="accessrestrict" metadataField="RestrictionOnAccessLicense" level="4"/>
             <additionalField column="Conditions governing reproduction" eadField="userestrict" metadataField="UseRestriction" level="4"/>
             <additionalField column="Existence and location of originals" eadField="originalsloc" metadataField="OriginalsLocation" level="5"/>
         </metadata>
