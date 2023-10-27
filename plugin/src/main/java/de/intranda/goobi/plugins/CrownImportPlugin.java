@@ -330,6 +330,10 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                     map.put(cn, cellValue);
                 }
 
+                // put varikable data to map
+                map.put(999, firstColumnValue);
+                map.put(998, secondColumnValue);
+
                 if (createProcess) {
                     Record rec = new Record();
                     rec.setData(firstColumnValue);
@@ -547,10 +551,10 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
         List<ImportObject> answer = new ArrayList<>();
 
         for (Record rec : records) {
-            String firstCol = rec.getData();
-            String secondCol = rec.getId(); // TODO get second valuie from data map
             Map<String, Integer> headerMap = getHeaderOrder(rec);
             Map<Integer, String> data = getRowMap(rec);
+            String firstCol = data.get(999);
+            String secondCol = data.get(998);
 
             // processTitleRule
 
@@ -828,12 +832,14 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
         return value;
     }
 
+    @SuppressWarnings("unchecked")
     public Map<Integer, String> getRowMap(Record rec) {
         Object tempObject = rec.getObject();
         List<Map<?, ?>> list = (List<Map<?, ?>>) tempObject;
         return (Map<Integer, String>) list.get(1);
     }
 
+    @SuppressWarnings("unchecked")
     public Map<String, Integer> getHeaderOrder(Record rec) {
         Object tempObject = rec.getObject();
         List<Map<?, ?>> list = (List<Map<?, ?>>) tempObject;
