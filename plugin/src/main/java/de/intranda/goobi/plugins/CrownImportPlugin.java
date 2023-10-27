@@ -547,8 +547,8 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
         List<ImportObject> answer = new ArrayList<>();
 
         for (Record rec : records) {
-            String firstCol = rec.getId();
-            String secondCol = rec.getData();
+            String firstCol = rec.getData();
+            String secondCol = rec.getId(); // TODO get second valuie from data map
             Map<String, Integer> headerMap = getHeaderOrder(rec);
             Map<Integer, String> data = getRowMap(rec);
 
@@ -561,9 +561,9 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                 // get static text
                 if (myString.startsWith("'") && myString.endsWith("'")) {
                     titleValue.append(myString.substring(1, myString.length() - 1));
-                } else if (myString.equals("first")) {
+                } else if ("first".equals(myString)) {
                     titleValue.append(firstCol);
-                } else if (myString.equals("second")) {
+                } else if ("second".equals(myString)) {
                     titleValue.append(secondCol);
                 } else {
                     String s = data.get(headerMap.get(myString));
@@ -595,12 +595,12 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                 physical.addMetadata(imagePath);
 
                 Metadata idMetadata = new Metadata(prefs.getMetadataTypeByName(firstColumn.getRulesetName()));
-                idMetadata.setValue(rec.getId());
+                idMetadata.setValue(firstCol);
                 logical.addMetadata(idMetadata);
 
-                if (secondColumn != null && StringUtils.isNotBlank(rec.getData())) {
+                if (secondColumn != null && StringUtils.isNotBlank(secondCol)) {
                     Metadata desc = new Metadata(prefs.getMetadataTypeByName(secondColumn.getRulesetName()));
-                    desc.setValue(rec.getData());
+                    desc.setValue(secondCol);
                     logical.addMetadata(desc);
                 }
 
@@ -689,12 +689,12 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                             // otherwise copy the jpg
                             if (!betterFileExists) {
                                 StorageProvider.getInstance()
-                                .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
+                                        .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
                             }
                         } else {
                             // always copy other file formats
                             StorageProvider.getInstance()
-                            .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
+                                    .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
                         }
                     }
                 } catch (IOException e) {
