@@ -45,7 +45,7 @@ import org.goobi.production.importer.DocstructElement;
 import org.goobi.production.importer.ImportObject;
 import org.goobi.production.importer.Record;
 import org.goobi.production.plugin.PluginLoader;
-import org.goobi.production.plugin.interfaces.IImportPluginVersion2;
+import org.goobi.production.plugin.interfaces.IImportPluginVersion3;
 import org.goobi.production.plugin.interfaces.IPlugin;
 import org.goobi.production.properties.ImportProperty;
 
@@ -72,7 +72,7 @@ import ugh.fileformats.mets.MetsMods;
 
 @PluginImplementation
 @Log4j2
-public class CrownImportPlugin implements IImportPluginVersion2 {
+public class CrownImportPlugin implements IImportPluginVersion3 {
 
     private static final long serialVersionUID = 8789683342709053966L;
 
@@ -102,7 +102,7 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
     private File file;
 
     @Setter
-    private String workflowTitle;
+    private String workflowName;
 
     private boolean runAsGoobiScript = false;
 
@@ -148,7 +148,7 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
 
         SubnodeConfiguration myconfig = null;
         try {
-            myconfig = xmlConfig.configurationAt("//config[./template = '" + workflowTitle + "']");
+            myconfig = xmlConfig.configurationAt("//config[./template = '" + workflowName + "']");
         } catch (IllegalArgumentException e) {
             myconfig = xmlConfig.configurationAt("//config[./template = '*']");
         }
@@ -206,8 +206,8 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
      */
     @Override
     public List<Record> generateRecordsFromFile() { //NOSONAR
-        if (StringUtils.isBlank(workflowTitle)) {
-            workflowTitle = form.getTemplate().getTitel();
+        if (StringUtils.isBlank(workflowName)) {
+            workflowName = form.getTemplate().getTitel();
         }
         readConfig();
 
@@ -530,8 +530,8 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
      */
     @Override
     public List<ImportObject> generateFiles(List<Record> records) {
-        if (StringUtils.isBlank(workflowTitle)) {
-            workflowTitle = form.getTemplate().getTitel();
+        if (StringUtils.isBlank(workflowName)) {
+            workflowName = form.getTemplate().getTitel();
         }
         readConfig();
 
@@ -639,6 +639,14 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                     eadId.setValue(nodeId);
                     logical.addMetadata(eadId);
                 }
+
+                // add selected
+                for (String colItem : form.getDigitalCollections()) {
+                    Metadata mdColl = new Metadata(prefs.getMetadataTypeByName("singleDigCollection"));
+                    mdColl.setValue(colItem);
+                    logical.addMetadata(mdColl);
+                }
+
                 fileformat.write(metsFileName);
             } catch (PreferencesException | TypeNotAllowedForParentException | MetadataTypeNotAllowedException | WriteException e) {
                 log.error(e);
@@ -693,12 +701,12 @@ public class CrownImportPlugin implements IImportPluginVersion2 {
                             // otherwise copy the jpg
                             if (!betterFileExists) {
                                 StorageProvider.getInstance()
-                                        .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
+                                .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
                             }
                         } else {
                             // always copy other file formats
                             StorageProvider.getInstance()
-                                    .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
+                            .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
                         }
                     }
                 } catch (IOException e) {
