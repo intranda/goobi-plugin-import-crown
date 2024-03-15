@@ -26,14 +26,10 @@
       <classifier>classes</classifier>
     </dependency>
     <dependency>
-      <groupId>de.intranda.goobi.plugins.administration</groupId>
-      <artifactId>archive-management-main</artifactId>
-      <version>23.05-SNAPSHOT</version>
-    </dependency>
-    <dependency>
-      <groupId>de.intranda.goobi.plugins.administration</groupId>
-      <artifactId>archive-management-gui</artifactId>
-      <version>23.05-SNAPSHOT</version>
+      <groupId>io.goobi.workflow.plugin</groupId>
+      <artifactId>plugin-administration-archive-management-lib</artifactId>
+      <version>24.03-SNAPSHOT</version>
+      <scope>compile</scope>
     </dependency>
   </dependencies>
 </project>
