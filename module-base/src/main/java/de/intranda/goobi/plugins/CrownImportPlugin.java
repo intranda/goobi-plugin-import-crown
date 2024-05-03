@@ -36,6 +36,7 @@ import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.apache.poi.xssf.usermodel.XSSFCellStyle;
 import org.goobi.interfaces.IArchiveManagementAdministrationPlugin;
 import org.goobi.interfaces.IEadEntry;
+import org.goobi.interfaces.IFieldValue;
 import org.goobi.interfaces.IMetadataField;
 import org.goobi.interfaces.INodeType;
 import org.goobi.production.enums.ImportReturnValue;
@@ -49,7 +50,6 @@ import org.goobi.production.plugin.interfaces.IImportPluginVersion3;
 import org.goobi.production.plugin.interfaces.IPlugin;
 import org.goobi.production.properties.ImportProperty;
 
-import de.intranda.goobi.plugins.model.FieldValue;
 import de.sub.goobi.config.ConfigPlugins;
 import de.sub.goobi.forms.MassImportForm;
 import de.sub.goobi.helper.StorageProvider;
@@ -452,7 +452,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             case 1:
                 for (IMetadataField field : entry.getIdentityStatementAreaList()) {
                     if (field.getName().equals(column.getEadName())) {
-                        FieldValue value = new FieldValue(field);
+                        IFieldValue value = field.createFieldValue();
                         value.setValue(stringValue);
                         field.setValues(Arrays.asList(value));
                         return;
@@ -462,7 +462,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             case 2:
                 for (IMetadataField field : entry.getContextAreaList()) {
                     if (field.getName().equals(column.getEadName())) {
-                        FieldValue value = new FieldValue(field);
+                        IFieldValue value = field.createFieldValue();
                         value.setValue(stringValue);
                         field.setValues(Arrays.asList(value));
                         return;
@@ -472,7 +472,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             case 3:
                 for (IMetadataField field : entry.getContentAndStructureAreaAreaList()) {
                     if (field.getName().equals(column.getEadName())) {
-                        FieldValue value = new FieldValue(field);
+                        IFieldValue value = field.createFieldValue();
                         value.setValue(stringValue);
                         field.setValues(Arrays.asList(value));
                         return;
@@ -482,7 +482,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             case 4:
                 for (IMetadataField field : entry.getAccessAndUseAreaList()) {
                     if (field.getName().equals(column.getEadName())) {
-                        FieldValue value = new FieldValue(field);
+                        IFieldValue value = field.createFieldValue();
                         value.setValue(stringValue);
                         field.setValues(Arrays.asList(value));
                         return;
@@ -492,7 +492,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             case 5:
                 for (IMetadataField field : entry.getAlliedMaterialsAreaList()) {
                     if (field.getName().equals(column.getEadName())) {
-                        FieldValue value = new FieldValue(field);
+                        IFieldValue value = field.createFieldValue();
                         value.setValue(stringValue);
                         field.setValues(Arrays.asList(value));
                         return;
@@ -503,7 +503,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             case 6:
                 for (IMetadataField field : entry.getNotesAreaList()) {
                     if (field.getName().equals(column.getEadName())) {
-                        FieldValue value = new FieldValue(field);
+                        IFieldValue value = field.createFieldValue();
                         value.setValue(stringValue);
                         field.setValues(Arrays.asList(value));
                         return;
@@ -513,7 +513,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             case 7:
                 for (IMetadataField field : entry.getDescriptionControlAreaList()) {
                     if (field.getName().equals(column.getEadName())) {
-                        FieldValue value = new FieldValue(field);
+                        IFieldValue value = field.createFieldValue();
                         value.setValue(stringValue);
                         field.setValues(Arrays.asList(value));
                         return;
