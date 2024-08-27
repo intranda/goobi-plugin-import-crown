@@ -113,7 +113,6 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
     private int startRow;
 
     private String eadFileName;
-    private String databaseName;
 
     // metadata information
     private String docType;
@@ -158,7 +157,6 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             imageRootFolder = myconfig.getString("/images");
 
             eadFileName = myconfig.getString("/basex/filename");
-            databaseName = myconfig.getString("/basex/database");
 
             startRow = myconfig.getInt("/startRow", 0);
             headerRowNumber = myconfig.getInt("/headerRow", 0);
@@ -217,8 +215,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             IPlugin ia = PluginLoader.getPluginByTitle(PluginType.Administration, "intranda_administration_archive_management");
             archivePlugin = (IArchiveManagementAdministrationPlugin) ia;
 
-            archivePlugin.setDatabaseName(databaseName);
-            archivePlugin.setFileName(eadFileName);
+            archivePlugin.setDatabaseName(eadFileName);
             archivePlugin.createNewDatabase();
             rootEntry = archivePlugin.getRootElement();
         }
@@ -399,8 +396,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             log.error(e);
         }
 
-        // save ead record
-        archivePlugin.createEadDocument();
+        archivePlugin.setSelectedEntry(rootEntry);
 
         // return the list of all generated records
         return recordList;
@@ -701,12 +697,12 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                             // otherwise copy the jpg
                             if (!betterFileExists) {
                                 StorageProvider.getInstance()
-                                .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
+                                        .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
                             }
                         } else {
                             // always copy other file formats
                             StorageProvider.getInstance()
-                            .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
+                                    .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
                         }
                     }
                 } catch (IOException e) {
