@@ -4,7 +4,7 @@
         <template>*</template>
 
         <!-- define if import shall use GoobiScript to run in the background -->
-        <runAsGoobiScript>true</runAsGoobiScript>
+        <runAsGoobiScript>false</runAsGoobiScript>
 
 
         <!-- first data row in excel file -->
@@ -28,9 +28,8 @@
             <nodetype>Level of description</nodetype>
             
             <!-- process title metatada -->
-            <!-- can be generated from other fields like "CatalogIDDigital + '_' +
-            ContentDescription"  -->
-            <title rule="CatalogIDDigital + ' ' + ContentDescription">TitleDocMain</title>
+            <!-- can be generated from other fields like "CatalogIDDigital + '_' + ContentDescription", or use 'first' and 'second' to get the hierarchical information -->
+            <title>first</title>
 
 
             <!--    
@@ -69,7 +68,6 @@
             <additionalField column="Note" eadField="didnote" metadataField="DidNote" level="6"/>
             <additionalField column="Archival History" eadField="custodhist" metadataField="InventoryHistory" level="2"/>
             <additionalField column="Date" eadField="unitdate" metadataField="PublicationYear" level="1"/>
-            <!-- <additionalField column="Subject terms" metadataField="SubjectTopic"  eadField="???" level="1"/> -->
             <additionalField column="Name of Creator" eadField="origination" metadataField="Provenience" level="2"/>
             <additionalField column="Immediate source of acquisition or transfer" eadField="acqinfo" metadataField="AquisitionInformation" level="2"/>
             <additionalField column="Language | Scripts of material" eadField="langmaterial" metadataField="DocLanguage" level="4"/>
@@ -80,6 +78,7 @@
         </metadata>
 
         <!-- image folder name. Sub folder are organized by the identifier metadata -->
+        <!-- image import is skipped, if folder does not exist or is empty -->
         <images>/opt/digiverso/import/crown/</images>
 
     </config>
