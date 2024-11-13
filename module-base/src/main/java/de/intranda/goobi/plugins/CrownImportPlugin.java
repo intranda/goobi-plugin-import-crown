@@ -418,6 +418,9 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
         for (MetadataColumn col : columnList) {
             String metadataValue = data.get(headerMap.get(col.getExcelColumnName()));
             addMetadataToNode(entry, col, metadataValue);
+            if ("TitleDocMain".equals(col.getRulesetName())) {
+                entry.setLabel(metadataValue);
+            }
         }
 
         // identifierField
@@ -436,7 +439,9 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
         if (createProcess) {
             entry.setGoobiProcessTitle(entry.getId());
         }
-        entry.setLabel(secondValue);
+        if (StringUtils.isBlank(entry.getLabel())) {
+            entry.setLabel(secondValue);
+        }
     }
 
     private void addMetadataToNode(IEadEntry entry, MetadataColumn column, String stringValue) {
