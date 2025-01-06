@@ -27,9 +27,15 @@
             <!-- column header for the node type, leave it empty when a fixed type should be used (file for nodes with processes, folder for all other)  -->
             <nodetype>Level of description</nodetype>
             
-            <!-- process title metatada -->
-            <!-- can be generated from other fields like "CatalogIDDigital + '_' + ContentDescription", or use 'first' and 'second' to get the hierarchical information -->
+            <!-- process title -->
+            
+            <!-- maximum length of the body token that will be used to generate a new process title -->
+            <lengthLimit>0</lengthLimit>
+            <!-- separator string that will be used to combine the tokens -->
+            <separator>_</separator>
+            <!-- Data for the process title. Can be the value first for the first column, second for the second column or a column title. If static text should be used, put it in '' -->
             <title>first</title>
+            <title>Title</title>
 
 
             <!--    

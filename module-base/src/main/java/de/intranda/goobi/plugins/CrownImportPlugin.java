@@ -14,7 +14,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.StringTokenizer;
 import java.util.stream.Stream;
 
 import org.apache.commons.configuration.HierarchicalConfiguration;
@@ -52,7 +51,9 @@ import org.goobi.production.properties.ImportProperty;
 
 import de.sub.goobi.config.ConfigPlugins;
 import de.sub.goobi.forms.MassImportForm;
+import de.sub.goobi.helper.ProcessTitleGenerator;
 import de.sub.goobi.helper.StorageProvider;
+import de.sub.goobi.helper.enums.ManipulationType;
 import de.sub.goobi.helper.exceptions.ImportPluginException;
 import lombok.Getter;
 import lombok.Setter;
@@ -127,7 +128,12 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
     private transient MetadataColumn firstColumn = null;
     private transient MetadataColumn secondColumn = null;
 
-    private String processTitleRule;
+    // maximum length of each component that is to be used to generate the process title
+    private int lengthLimit;
+    // separator that will be used to join all components into a process title
+    private String separator;
+
+    private transient List<String> titleParts = new ArrayList<>();
 
     /**
      * define what kind of import plugin this is
@@ -193,8 +199,11 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                 columnList.add(mc);
             }
 
-            // process title generation rule
-            processTitleRule = myconfig.getString("/metadata/title");
+            // process title generation
+
+            lengthLimit = myconfig.getInt("/metadata/lengthLimit", 0);
+            separator = myconfig.getString("/metadata/separator", "_");
+            titleParts = Arrays.asList(myconfig.getStringArray("/metadata/title"));
 
         }
     }
@@ -559,24 +568,24 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
 
             // processTitleRule
 
-            StringBuilder titleValue = new StringBuilder();
-            StringTokenizer tokenizer = new StringTokenizer(processTitleRule, "+");
-            while (tokenizer.hasMoreTokens()) {
-                String myString = tokenizer.nextToken().trim();
-                // get static text
-                if (myString.startsWith("'") && myString.endsWith("'")) {
-                    titleValue.append(myString.substring(1, myString.length() - 1));
-                } else if ("first".equals(myString)) {
-                    titleValue.append(firstCol);
-                } else if ("second".equals(myString)) {
-                    titleValue.append(secondCol);
+            ProcessTitleGenerator titleGenerator = new ProcessTitleGenerator();
+            titleGenerator.setSeparator(separator);
+            titleGenerator.setBodyTokenLengthLimit(lengthLimit);
+
+            for (String comp : titleParts) {
+                if (comp.startsWith("'") && comp.endsWith("'")) {
+                    titleGenerator.addToken(comp.substring(1, comp.length() - 1), ManipulationType.NORMAL);
+                } else if ("first".equals(comp)) {
+                    titleGenerator.addToken(firstCol, ManipulationType.NORMAL);
+                } else if ("second".equals(comp)) {
+                    titleGenerator.addToken(secondCol, ManipulationType.NORMAL);
                 } else {
-                    String s = data.get(headerMap.get(myString));
-                    titleValue.append(s != null ? s : "");
+                    String s = data.get(headerMap.get(comp));
+                    titleGenerator.addToken(s, ManipulationType.NORMAL);
                 }
             }
 
-            String identifier = titleValue.toString().replaceAll("[\\W]", "_");
+            String identifier = titleGenerator.generateTitle();
 
             Path currentImageFolder = allImageFolder.get(rec.getId());
             List<Path> filesToImport = null;
