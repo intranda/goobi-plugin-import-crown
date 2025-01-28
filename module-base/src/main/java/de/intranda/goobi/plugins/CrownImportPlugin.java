@@ -168,7 +168,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             startRow = myconfig.getInt("/startRow", 0);
             headerRowNumber = myconfig.getInt("/headerRow", 0);
 
-            nodeTypeColumnName = myconfig.getString("/nodetype");
+            nodeTypeColumnName = myconfig.getString("/metadata/nodetype");
             docType = myconfig.getString("/metadata/doctype", "Monograph");
 
             SubnodeConfiguration firstFieldDefinition = myconfig.configurationAt("/metadata/firstField");
