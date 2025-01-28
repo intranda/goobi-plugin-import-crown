@@ -854,8 +854,8 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
     public static final DirectoryStream.Filter<Path> fileFilter = path -> {
         String filename = path.getFileName().toString().toLowerCase();
         return !filename.contains("komprimiert")
-                && (filename.endsWith(".tif") || filename.endsWith(".jpg") || filename.endsWith(".jpeg") || filename.endsWith(".png")
-                        || filename.endsWith(".wmv"));
+                && (filename.endsWith(".tif") || filename.endsWith(".jpg") || filename.endsWith(".jpeg") || filename.endsWith(".tiff")
+                        || filename.endsWith(".png") || filename.endsWith(".wmv"));
     };
 
     public String getCellValue(Row row, int columnIndex) {
