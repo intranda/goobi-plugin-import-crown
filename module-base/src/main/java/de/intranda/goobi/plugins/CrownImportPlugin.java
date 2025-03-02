@@ -65,9 +65,10 @@ import ugh.dl.Fileformat;
 import ugh.dl.Metadata;
 import ugh.dl.MetadataType;
 import ugh.dl.Prefs;
+import ugh.exceptions.DocStructHasNoTypeException;
 import ugh.exceptions.MetadataTypeNotAllowedException;
 import ugh.exceptions.PreferencesException;
-import ugh.exceptions.TypeNotAllowedForParentException;
+import ugh.exceptions.UGHException;
 import ugh.exceptions.WriteException;
 import ugh.fileformats.mets.MetsMods;
 
@@ -167,7 +168,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             startRow = myconfig.getInt("/startRow", 0);
             headerRowNumber = myconfig.getInt("/headerRow", 0);
 
-            nodeTypeColumnName = myconfig.getString("/nodetype");
+            nodeTypeColumnName = myconfig.getString("/metadata/nodetype");
             docType = myconfig.getString("/metadata/doctype", "Monograph");
 
             SubnodeConfiguration firstFieldDefinition = myconfig.configurationAt("/metadata/firstField");
@@ -594,71 +595,100 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             }
 
             String metsFileName = getImportFolder() + File.separator + identifier + ".xml";
+
+            Fileformat fileformat = null;
+            DocStruct logical = null;
+
+            DocStruct physical = null;
             try {
-                Fileformat fileformat = new MetsMods(prefs);
+                fileformat = new MetsMods(prefs);
                 DigitalDocument digDoc = new DigitalDocument();
                 fileformat.setDigitalDocument(digDoc);
-
-                DocStruct logical = digDoc.createDocStruct(prefs.getDocStrctTypeByName(docType));
-                DocStruct physical = digDoc.createDocStruct(prefs.getDocStrctTypeByName("BoundBook"));
+                logical = digDoc.createDocStruct(prefs.getDocStrctTypeByName(docType));
+                physical = digDoc.createDocStruct(prefs.getDocStrctTypeByName("BoundBook"));
                 digDoc.setLogicalDocStruct(logical);
                 digDoc.setPhysicalDocStruct(physical);
-
+            } catch (UGHException e) {
+                log.error(e);
+            }
+            try {
                 Metadata imagePath = new Metadata(prefs.getMetadataTypeByName("pathimagefiles"));
                 imagePath.setValue("./images/");
                 physical.addMetadata(imagePath);
-
+            } catch (MetadataTypeNotAllowedException | DocStructHasNoTypeException e) {
+                log.error(e);
+            }
+            try {
                 Metadata idMetadata = new Metadata(prefs.getMetadataTypeByName(firstColumn.getRulesetName()));
                 idMetadata.setValue(firstCol);
                 logical.addMetadata(idMetadata);
+            } catch (MetadataTypeNotAllowedException | DocStructHasNoTypeException e) {
+                log.error(e);
+            }
 
-                if (secondColumn != null && StringUtils.isNotBlank(secondCol)) {
+            if (secondColumn != null && StringUtils.isNotBlank(secondCol)) {
+                try {
                     Metadata desc = new Metadata(prefs.getMetadataTypeByName(secondColumn.getRulesetName()));
                     desc.setValue(secondCol);
                     logical.addMetadata(desc);
+                } catch (MetadataTypeNotAllowedException | DocStructHasNoTypeException e) {
+                    log.error(e);
                 }
+            }
 
-                // additional metadata
-                for (MetadataColumn col : columnList) {
-                    if (StringUtils.isNotBlank(col.getRulesetName())) {
-                        String value = data.get(headerMap.get(col.getExcelColumnName()));
-                        if (StringUtils.isNotBlank(value)) {
+            // additional metadata
+            for (MetadataColumn col : columnList) {
+                if (StringUtils.isNotBlank(col.getRulesetName())) {
+                    String value = data.get(headerMap.get(col.getExcelColumnName()));
+                    if (StringUtils.isNotBlank(value)) {
+                        try {
                             Metadata meta = new Metadata(prefs.getMetadataTypeByName(col.getRulesetName()));
                             meta.setValue(value);
                             logical.addMetadata(meta);
+                        } catch (MetadataTypeNotAllowedException | DocStructHasNoTypeException e) {
+                            log.error(e);
                         }
                     }
                 }
+            }
 
-                String nodeId = null;
-                if (firstColumn.isIdentifierField()) {
-                    nodeId = firstCol;
-                } else if (secondColumn != null && secondColumn.isIdentifierField()) {
-                    nodeId = secondCol;
-                } else {
-                    for (MetadataColumn col : columnList) {
-                        if (col.isIdentifierField()) {
-                            nodeId = data.get(headerMap.get(col.getExcelColumnName()));
-                        }
+            String nodeId = null;
+            if (firstColumn.isIdentifierField()) {
+                nodeId = firstCol;
+            } else if (secondColumn != null && secondColumn.isIdentifierField()) {
+                nodeId = secondCol;
+            } else {
+                for (MetadataColumn col : columnList) {
+                    if (col.isIdentifierField()) {
+                        nodeId = data.get(headerMap.get(col.getExcelColumnName()));
                     }
                 }
+            }
 
-                MetadataType eadIdType = prefs.getMetadataTypeByName("NodeId");
-                if (eadIdType != null) {
+            MetadataType eadIdType = prefs.getMetadataTypeByName("NodeId");
+            if (eadIdType != null) {
+                try {
                     Metadata eadId = new Metadata(eadIdType);
                     eadId.setValue(nodeId);
                     logical.addMetadata(eadId);
+                } catch (MetadataTypeNotAllowedException | DocStructHasNoTypeException e) {
+                    log.error(e);
                 }
+            }
 
-                // add selected
-                for (String colItem : form.getDigitalCollections()) {
+            // add selected
+            for (String colItem : form.getDigitalCollections()) {
+                try {
                     Metadata mdColl = new Metadata(prefs.getMetadataTypeByName("singleDigCollection"));
                     mdColl.setValue(colItem);
                     logical.addMetadata(mdColl);
+                } catch (MetadataTypeNotAllowedException | DocStructHasNoTypeException e) {
+                    log.error(e);
                 }
-
+            }
+            try {
                 fileformat.write(metsFileName);
-            } catch (PreferencesException | TypeNotAllowedForParentException | MetadataTypeNotAllowedException | WriteException e) {
+            } catch (PreferencesException | WriteException e) {
                 log.error(e);
             }
 
@@ -824,8 +854,8 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
     public static final DirectoryStream.Filter<Path> fileFilter = path -> {
         String filename = path.getFileName().toString().toLowerCase();
         return !filename.contains("komprimiert")
-                && (filename.endsWith(".tif") || filename.endsWith(".jpg") || filename.endsWith(".jpeg") || filename.endsWith(".png")
-                        || filename.endsWith(".wmv"));
+                && (filename.endsWith(".tif") || filename.endsWith(".jpg") || filename.endsWith(".jpeg") || filename.endsWith(".tiff")
+                        || filename.endsWith(".png") || filename.endsWith(".wmv"));
     };
 
     public String getCellValue(Row row, int columnIndex) {
