@@ -233,7 +233,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
         INodeType fileType = null;
         INodeType folderType = null;
 
-        for (INodeType nodeType : archivePlugin.getConfiguredNodes()) {
+        for (INodeType nodeType : archivePlugin.getConfig().getConfiguredNodes()) {
             if ("folder".equals(nodeType.getNodeName())) {
                 folderType = nodeType;
             } else if ("file".equals(nodeType.getNodeName())) {
@@ -382,7 +382,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                     // set node type
                     if (nodeTypeColumnName != null && headerOrder.containsKey(nodeTypeColumnName)) {
                         String nodeName = map.get(headerOrder.get(nodeTypeColumnName));
-                        for (INodeType nodeType : archivePlugin.getConfiguredNodes()) {
+                        for (INodeType nodeType : archivePlugin.getConfig().getConfiguredNodes()) {
                             if (nodeType.getNodeName().equalsIgnoreCase(nodeName)) {
                                 lastElement.setNodeType(nodeType);
                                 break;
