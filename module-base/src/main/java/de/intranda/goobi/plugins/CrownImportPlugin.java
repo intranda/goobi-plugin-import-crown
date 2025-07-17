@@ -22,7 +22,7 @@ import org.apache.commons.configuration.XMLConfiguration;
 import org.apache.commons.configuration.reloading.FileChangedReloadingStrategy;
 import org.apache.commons.configuration.tree.xpath.XPathExpressionEngine;
 import org.apache.commons.io.input.BOMInputStream;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.CellType;
@@ -178,6 +178,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             firstColumn.setEadName(firstFieldDefinition.getString("@eadField"));
             firstColumn.setLevel(firstFieldDefinition.getInt("@level", 0));
             firstColumn.setIdentifierField(firstFieldDefinition.getBoolean("@identifier", false));
+            firstColumn.setAuthorityColumnName(firstFieldDefinition.getString("@authorityDataColumn"));
 
             SubnodeConfiguration secondFieldDefinition = myconfig.configurationAt("/metadata/secondField");
             if (secondFieldDefinition.getBoolean("@enabled")) {
@@ -186,6 +187,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                 secondColumn.setEadName(secondFieldDefinition.getString("@eadField"));
                 secondColumn.setLevel(secondFieldDefinition.getInt("@level", 0));
                 secondColumn.setIdentifierField(secondFieldDefinition.getBoolean("@identifier", false));
+                secondColumn.setAuthorityColumnName(secondFieldDefinition.getString("@authorityDataColumn"));
             }
 
             columnList.clear();
@@ -197,6 +199,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                 mc.setLevel(field.getInt("@level", 0));
                 mc.setIdentifierField(field.getBoolean("@identifier", false));
                 mc.setExcelColumnName(field.getString("@column"));
+                mc.setAuthorityColumnName(field.getString("@authorityDataColumn"));
                 columnList.add(mc);
             }
 
@@ -417,17 +420,29 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
         // add identifier and label
 
         if (StringUtils.isNotBlank(firstColumn.getEadName())) {
-            addMetadataToNode(entry, firstColumn, firstValue);
+            String authorityData = null;
+            if (StringUtils.isNotBlank(firstColumn.getAuthorityColumnName())) {
+                authorityData = data.get(headerMap.get(firstColumn.getAuthorityColumnName()));
+            }
+            addMetadataToNode(entry, firstColumn, firstValue, authorityData);
         }
 
         if (secondColumn != null && StringUtils.isNotBlank(secondColumn.getEadName())) {
-            addMetadataToNode(entry, secondColumn, secondValue);
+            String authorityData = null;
+            if (StringUtils.isNotBlank(secondColumn.getAuthorityColumnName())) {
+                authorityData = data.get(headerMap.get(secondColumn.getAuthorityColumnName()));
+            }
+            addMetadataToNode(entry, secondColumn, secondValue, authorityData);
 
         }
 
         for (MetadataColumn col : columnList) {
             String metadataValue = data.get(headerMap.get(col.getExcelColumnName()));
-            addMetadataToNode(entry, col, metadataValue);
+            String authorityData = null;
+            if (StringUtils.isNotBlank(col.getAuthorityColumnName())) {
+                authorityData = data.get(headerMap.get(col.getAuthorityColumnName()));
+            }
+            addMetadataToNode(entry, col, metadataValue, authorityData);
             if ("TitleDocMain".equals(col.getRulesetName())) {
                 entry.setLabel(metadataValue);
             }
@@ -454,7 +469,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
         }
     }
 
-    private void addMetadataToNode(IEadEntry entry, MetadataColumn column, String stringValue) {
+    private void addMetadataToNode(IEadEntry entry, MetadataColumn column, String stringValue, String authorityData) {
         if (StringUtils.isBlank(stringValue)) {
             return;
         }
@@ -465,6 +480,9 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                     if (field.getName().equals(column.getEadName())) {
                         IFieldValue value = field.createFieldValue();
                         value.setValue(stringValue);
+                        if (StringUtils.isNotBlank(authorityData)) {
+                            value.setAuthorityValue(authorityData);
+                        }
                         field.setValues(Arrays.asList(value));
                         return;
                     }
@@ -475,6 +493,9 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                     if (field.getName().equals(column.getEadName())) {
                         IFieldValue value = field.createFieldValue();
                         value.setValue(stringValue);
+                        if (StringUtils.isNotBlank(authorityData)) {
+                            value.setAuthorityValue(authorityData);
+                        }
                         field.setValues(Arrays.asList(value));
                         return;
                     }
@@ -485,6 +506,9 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                     if (field.getName().equals(column.getEadName())) {
                         IFieldValue value = field.createFieldValue();
                         value.setValue(stringValue);
+                        if (StringUtils.isNotBlank(authorityData)) {
+                            value.setAuthorityValue(authorityData);
+                        }
                         field.setValues(Arrays.asList(value));
                         return;
                     }
@@ -495,6 +519,9 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                     if (field.getName().equals(column.getEadName())) {
                         IFieldValue value = field.createFieldValue();
                         value.setValue(stringValue);
+                        if (StringUtils.isNotBlank(authorityData)) {
+                            value.setAuthorityValue(authorityData);
+                        }
                         field.setValues(Arrays.asList(value));
                         return;
                     }
@@ -505,6 +532,9 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                     if (field.getName().equals(column.getEadName())) {
                         IFieldValue value = field.createFieldValue();
                         value.setValue(stringValue);
+                        if (StringUtils.isNotBlank(authorityData)) {
+                            value.setAuthorityValue(authorityData);
+                        }
                         field.setValues(Arrays.asList(value));
                         return;
                     }
@@ -516,6 +546,9 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                     if (field.getName().equals(column.getEadName())) {
                         IFieldValue value = field.createFieldValue();
                         value.setValue(stringValue);
+                        if (StringUtils.isNotBlank(authorityData)) {
+                            value.setAuthorityValue(authorityData);
+                        }
                         field.setValues(Arrays.asList(value));
                         return;
                     }
@@ -526,6 +559,9 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                     if (field.getName().equals(column.getEadName())) {
                         IFieldValue value = field.createFieldValue();
                         value.setValue(stringValue);
+                        if (StringUtils.isNotBlank(authorityData)) {
+                            value.setAuthorityValue(authorityData);
+                        }
                         field.setValues(Arrays.asList(value));
                         return;
                     }
