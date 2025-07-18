@@ -14,10 +14,9 @@
 
         <!-- basex database name and file name -->
         <basex>
-            <filename>crown.xml</filename>
+            <filename>Reichskrone</filename>
         </basex>
 
-       
 
         <!-- metadata -->
         <metadata>
@@ -26,9 +25,9 @@
 
             <!-- column header for the node type, leave it empty when a fixed type should be used (file for nodes with processes, folder for all other)  -->
             <nodetype>Level of description</nodetype>
-            
+
             <!-- process title -->
-            
+
             <!-- maximum length of the body token that will be used to generate a new process title -->
             <lengthLimit>0</lengthLimit>
             <!-- separator string that will be used to combine the tokens -->
@@ -55,32 +54,45 @@
 
             <!-- if enabled is set to false, the field is not searched in the hierarchical part. In this case, a
             separate configuration for the fixed area can exist -->
-            <secondField enabled="false" eadField="Shelfmark" metadataField="CatalogIDDigital" level="1" identifier="true"/>
-            
-            <!-- fixed metadata -->
-            <additionalField column="Level of description" eadField="descriptionLevel" level="1"/>
-            <additionalField column="Reference code" eadField="unitid" metadataField="CatalogIDDigital" level="1"/>
-            
-            
-            <additionalField column="Title" eadField="appraisal" metadataField="singleDigCollection" level="3"/>
-            
-            
-            
-            <additionalField column="Physical characteristics and technical requirements" eadField="phystech" metadataField="PhysTech" level="4"/>
-            <additionalField column="Extent and medium of the unit of description" eadField="physdesc" metadataField="Format" level="1" />
+            <secondField enabled="false" eadField="Shelfmark" metadataField="CatalogIDDigital" level="1" identifier="true" />
 
-            <additionalField column="Scope and content" eadField="scopecontent" metadataField="ContentDescription" level="3"/>
-            <additionalField column="Administrative/Biographical History" eadField="bioghist" metadataField="BiographicalInformation" level="2"/>
-            <additionalField column="Note" eadField="didnote" metadataField="DidNote" level="6"/>
-            <additionalField column="Archival History" eadField="custodhist" metadataField="InventoryHistory" level="2"/>
-            <additionalField column="Date" eadField="unitdate" metadataField="PublicationYear" level="1"/>
-            <additionalField column="Name of Creator" eadField="origination" metadataField="Provenience" level="2"/>
-            <additionalField column="Immediate source of acquisition or transfer" eadField="acqinfo" metadataField="AquisitionInformation" level="2"/>
-            <additionalField column="Language | Scripts of material" eadField="langmaterial" metadataField="DocLanguage" level="4"/>
-            <additionalField column="Related units of description" eadField="separatedmaterial" metadataField="SeparatedMaterial" level="5"/>
-            <additionalField column="Conditions governing access" eadField="accessrestrict" metadataField="RestrictionOnAccessLicense" level="4"/>
-            <additionalField column="Conditions governing reproduction" eadField="userestrict" metadataField="UseRestriction" level="4"/>
-            <additionalField column="Existence and location of originals" eadField="originalsloc" metadataField="OriginalsLocation" level="5"/>
+            <!-- fixed metadata -->
+            <additionalField column="Level of description" eadField="descriptionLevel" level="1" />
+            <additionalField column="Reference code" eadField="unitid" metadataField="CatalogIDDigital" level="1" />
+            <additionalField column="Title" eadField="appraisal" metadataField="singleDigCollection" level="3" />
+            <additionalField column="Physical characteristics and technical requirements" eadField="phystech" metadataField="PhysTech" level="4" />
+            <additionalField column="Extent and medium of the unit of description" eadField="physdesc" metadataField="Format" level="1" />
+            <additionalField column="Scope and content" eadField="scopecontent" metadataField="ContentDescription" level="3" />
+            <additionalField column="Administrative/Biographical History" eadField="bioghist" metadataField="BiographicalInformation" level="2" />
+            <additionalField column="Note" eadField="didnote" metadataField="DidNote" level="6" />
+            <additionalField column="Archival History" eadField="custodhist" metadataField="InventoryHistory" level="2" />
+            <additionalField column="Date" eadField="unitdate" metadataField="PublicationYear" level="1" />
+            <additionalField column="Name of Creator" eadField="origination" metadataField="Provenience" level="2" />
+            <additionalField column="Immediate source of acquisition or transfer" eadField="acqinfo" metadataField="AquisitionInformation" level="2" />
+            <additionalField column="Language | Scripts of material" eadField="langmaterial" metadataField="DocLanguage" level="4" />
+            <additionalField column="Related units of description" eadField="separatedmaterial" metadataField="SeparatedMaterial" level="5" />
+            <additionalField column="Conditions governing access" eadField="accessrestrict" metadataField="RestrictionOnAccessLicense" level="4" />
+            <additionalField column="Conditions governing reproduction" eadField="userestrict" metadataField="UseRestriction" level="4" />
+            <additionalField column="Existence and location of originals" eadField="originalsloc" metadataField="OriginalsLocation" level="5" />
+
+            <!-- first option: complete name is in a single column, fixed role -->
+            <personField metadataField="Author" eadField="Author" authorityColumn="GND for Author1" level="2">
+                <!-- use this field if the column contains the complete name -->
+                <!-- set this field to true, if the name must be splitted into first- and lastname. The complete name gets written into lastname -->
+                <!-- define at which character the name is separated. @firstNameIsFirstPart defines, if the firstname is the first or last part of the name -->
+                <nameColumn splitName="true" splitChar="," firstNameIsFirstPart="false">Author1</nameColumn>
+            </personField>
+
+            <!-- second option: first name, last name, authority data in separate columns, fixed role -->
+            <personField metadataField="Author" eadField="Author" authorityColumn="GND for Author2" level="2">
+                <nameColumn splitName="false" splitChar="," firstNameIsFirstPart="false">Author lastname 2</nameColumn>
+                <firstnameColumn>Author firstname 2</firstnameColumn>
+            </personField>
+
+            <!-- third option: role also comes from a column. Can be different columns or the same column for ead and metadata names -->
+            <personField metadataField="Role" eadField="Role" level="2">
+                <nameColumn splitName="true" splitChar="," firstNameIsFirstPart="false">Person3</nameColumn>
+            </personField>
         </metadata>
 
         <!-- image folder name. Sub folder are organized by the identifier metadata -->
