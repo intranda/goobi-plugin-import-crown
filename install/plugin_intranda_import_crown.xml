@@ -50,11 +50,10 @@
                     * 7: Description Control Area 
                     -->
 
-            <firstField metadataField="TitleDocMain" eadField="unittitle" level="1" />
-
+            <firstField metadataField="CatalogIDDigital" eadField="Shelfmark" level="1" identifier="true" />
             <!-- if enabled is set to false, the field is not searched in the hierarchical part. In this case, a
             separate configuration for the fixed area can exist -->
-            <secondField enabled="false" eadField="Shelfmark" metadataField="CatalogIDDigital" level="1" identifier="true" />
+            <secondField enabled="true" eadField="unittitle" metadataField="TitleDocMain" level="1" />
 
             <!-- fixed metadata -->
             <additionalField column="Level of description" eadField="descriptionLevel" level="1" />
@@ -93,6 +92,25 @@
             <personField metadataField="Role" eadField="Role" level="2">
                 <nameColumn splitName="true" splitChar="," firstNameIsFirstPart="false">Person3</nameColumn>
             </personField>
+
+
+            <!-- first option: complete name is in a single column, fixed role -->
+            <corporateField metadataField="HostInstitution" eadField="HostInstitution" authorityColumn="GND for Corporate1" level="2">
+                <nameColumn splitName="true" splitChar="," >Corporate1</nameColumn>
+            </corporateField>
+
+            <!-- second option: names in separate columns, fixed role -->
+            <corporateField metadataField="HostInstitution" eadField="HostInstitution" level="2">
+                <nameColumn splitName="false">Corporate2 main name</nameColumn>
+                <subNameColumn>Corporate2 sub name</subNameColumn>
+                <partNameColumn>Corporate2 part name</partNameColumn>
+            </corporateField>
+
+            <!-- third option: role also comes from a column. Can be different columns or the same column for ead and metadata names -->
+            <corporateField metadataField="Corporate type" eadField="Corporate type" level="2">
+                <nameColumn splitName="true" splitChar="," >Corporate3</nameColumn>
+            </corporateField>
+
         </metadata>
 
         <!-- image folder name. Sub folder are organized by the identifier metadata -->
