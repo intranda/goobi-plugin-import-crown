@@ -64,6 +64,7 @@ import ugh.dl.DigitalDocument;
 import ugh.dl.DocStruct;
 import ugh.dl.Fileformat;
 import ugh.dl.Metadata;
+import ugh.dl.MetadataGroup;
 import ugh.dl.MetadataType;
 import ugh.dl.NamePart;
 import ugh.dl.Person;
@@ -131,6 +132,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
 
     private transient List<PersonColumn> personList = new ArrayList<>();
     private transient List<CorporateColumn> corpList = new ArrayList<>();
+    private transient List<GroupColumns> groupList = new ArrayList<>();
     private transient MetadataColumn firstColumn = null;
     private transient MetadataColumn secondColumn = null;
 
@@ -198,13 +200,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             columnList.clear();
 
             for (HierarchicalConfiguration field : myconfig.configurationsAt("/metadata/additionalField")) {
-                MetadataColumn mc = new MetadataColumn();
-                mc.setRulesetName(field.getString("@metadataField"));
-                mc.setEadName(field.getString("@eadField"));
-                mc.setLevel(field.getInt("@level", 0));
-                mc.setIdentifierField(field.getBoolean("@identifier", false));
-                mc.setExcelColumnName(field.getString("@column"));
-                mc.setAuthorityColumnName(field.getString("@authorityDataColumn"));
+                MetadataColumn mc = extracted(field);
                 columnList.add(mc);
             }
             personList.clear();
@@ -237,6 +233,25 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                 cc.setPartNameColumnName(field.getString("/partNameColumn"));
                 corpList.add(cc);
             }
+            groupList.clear();
+            List<HierarchicalConfiguration> gml = xmlConfig.configurationsAt("/metadata/group");
+            for (HierarchicalConfiguration md : gml) {
+                GroupColumns grp = new GroupColumns();
+                grp.setRulesetName(md.getString("@metadataField"));
+                grp.setEadName(md.getString("@eadField"));
+                grp.setLevel(md.getInt("@level", 0));
+                grp.setRulesetName(md.getString("@ugh"));
+
+                List<HierarchicalConfiguration> subList = md.configurationsAt("/field");
+                for (HierarchicalConfiguration sub : subList) {
+                    MetadataColumn mc = extracted(sub);
+                    grp.addMetadataColumn(mc);
+                }
+
+                groupList.add(grp);
+
+            }
+
             // process title generation
 
             lengthLimit = myconfig.getInt("/metadata/lengthLimit", 0);
@@ -244,6 +259,17 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             titleParts = Arrays.asList(myconfig.getStringArray("/metadata/title"));
 
         }
+    }
+
+    public MetadataColumn extracted(HierarchicalConfiguration field) {
+        MetadataColumn mc = new MetadataColumn();
+        mc.setRulesetName(field.getString("@metadataField"));
+        mc.setEadName(field.getString("@eadField"));
+        mc.setLevel(field.getInt("@level", 0));
+        mc.setIdentifierField(field.getBoolean("@identifier", false));
+        mc.setExcelColumnName(field.getString("@column"));
+        mc.setAuthorityColumnName(field.getString("@authorityDataColumn"));
+        return mc;
     }
 
     /**
@@ -548,6 +574,10 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             }
 
             addCorporateToNode(entry, col.getLevel(), role, mainName, subName, partName, authorityData);
+        }
+
+        for (GroupColumns gmo : groupList) {
+            // TODO
         }
 
         // identifierField
@@ -1038,6 +1068,50 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                     log.error(e);
                 }
 
+            }
+
+            for (GroupColumns gmo : groupList) {
+                // create group, if configured
+                if (StringUtils.isNotBlank(gmo.getRulesetName())) {
+                    try {
+                        MetadataGroup group = new MetadataGroup(prefs.getMetadataGroupTypeByName(gmo.getRulesetName()));
+                        if (group != null) {
+                            // add metadata to group, if value exists
+                            for (MetadataColumn col : gmo.getMetadataList()) {
+                                if (StringUtils.isNotBlank(col.getRulesetName())) {
+                                    String value = data.get(headerMap.get(col.getExcelColumnName()));
+                                    if (StringUtils.isNotBlank(value)) {
+                                        String authorityData = null;
+                                        if (StringUtils.isNotBlank(col.getAuthorityColumnName())) {
+                                            authorityData = data.get(headerMap.get(col.getAuthorityColumnName()));
+                                        }
+                                        try {
+                                            Metadata meta = new Metadata(prefs.getMetadataTypeByName(col.getRulesetName()));
+                                            meta.setAuthorityValue(authorityData);
+                                            meta.setValue(value);
+                                            group.addMetadata(meta);
+                                        } catch (MetadataTypeNotAllowedException | DocStructHasNoTypeException e) {
+                                            log.error(e);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        // only add group to docstruct, if it is not empty
+                        boolean groupHasMetadata = false;
+                        for (Metadata meta : group.getMetadataList()) {
+                            if (StringUtils.isNotBlank(meta.getValue())) {
+                                groupHasMetadata = true;
+                            }
+                        }
+                        if (groupHasMetadata) {
+                            logical.addMetadataGroup(group);
+                        }
+
+                    } catch (UGHException e) {
+                        log.error(e);
+                    }
+                }
             }
 
             String nodeId = null;
