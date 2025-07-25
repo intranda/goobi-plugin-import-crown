@@ -37,6 +37,7 @@ import org.goobi.interfaces.IArchiveManagementAdministrationPlugin;
 import org.goobi.interfaces.IEadEntry;
 import org.goobi.interfaces.IFieldValue;
 import org.goobi.interfaces.IMetadataField;
+import org.goobi.interfaces.IMetadataGroup;
 import org.goobi.interfaces.INodeType;
 import org.goobi.production.enums.ImportReturnValue;
 import org.goobi.production.enums.ImportType;
@@ -234,13 +235,12 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                 corpList.add(cc);
             }
             groupList.clear();
-            List<HierarchicalConfiguration> gml = xmlConfig.configurationsAt("/metadata/group");
+            List<HierarchicalConfiguration> gml = myconfig.configurationsAt("/metadata/group");
             for (HierarchicalConfiguration md : gml) {
                 GroupColumns grp = new GroupColumns();
                 grp.setRulesetName(md.getString("@metadataField"));
                 grp.setEadName(md.getString("@eadField"));
                 grp.setLevel(md.getInt("@level", 0));
-                grp.setRulesetName(md.getString("@ugh"));
 
                 List<HierarchicalConfiguration> subList = md.configurationsAt("/field");
                 for (HierarchicalConfiguration sub : subList) {
@@ -577,7 +577,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
         }
 
         for (GroupColumns gmo : groupList) {
-            // TODO
+            addGroupToNode(entry, data, headerMap, gmo);
         }
 
         // identifierField
@@ -586,7 +586,9 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
         } else if (secondColumn != null && secondColumn.isIdentifierField()) {
             entry.setId(secondValue);
         } else {
-            for (MetadataColumn col : columnList) {
+            for (
+
+            MetadataColumn col : columnList) {
                 if (col.isIdentifierField()) {
                     entry.setId(data.get(headerMap.get(col.getExcelColumnName())));
                 }
@@ -597,6 +599,95 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
         }
         if (StringUtils.isBlank(entry.getLabel())) {
             entry.setLabel(secondValue);
+        }
+    }
+
+    public void addGroupToNode(IEadEntry entry, Map<Integer, String> data, Map<String, Integer> headerMap, GroupColumns gmo) {
+        switch (gmo.getLevel()) {
+            case 1:
+                for (IMetadataField field : entry.getIdentityStatementAreaList()) {
+                    if (field.getName().equals(gmo.getEadName())) {
+                        addGroupMetadata(data, headerMap, gmo, field);
+                    }
+
+                }
+                break;
+            case 2:
+                for (IMetadataField field : entry.getContextAreaList()) {
+                    if (field.getName().equals(gmo.getEadName())) {
+
+                    }
+                }
+                break;
+
+            case 3:
+                for (IMetadataField field : entry.getContentAndStructureAreaAreaList()) {
+                    if (field.getName().equals(gmo.getEadName())) {
+
+                        return;
+                    }
+                }
+                break;
+            case 4:
+                for (IMetadataField field : entry.getAccessAndUseAreaList()) {
+                    if (field.getName().equals(gmo.getEadName())) {
+
+                        return;
+                    }
+                }
+                break;
+            case 5:
+                for (IMetadataField field : entry.getAlliedMaterialsAreaList()) {
+                    if (field.getName().equals(gmo.getEadName())) {
+
+                        return;
+                    }
+                }
+
+                break;
+            case 6:
+                for (IMetadataField field : entry.getNotesAreaList()) {
+                    if (field.getName().equals(gmo.getEadName())) {
+
+                        return;
+                    }
+                }
+                break;
+            case 7:
+                for (IMetadataField field : entry.getDescriptionControlAreaList()) {
+                    if (field.getName().equals(gmo.getEadName())) {
+
+                        return;
+                    }
+                }
+                break;
+            default:
+                break;
+
+        }
+    }
+
+    public void addGroupMetadata(Map<Integer, String> data, Map<String, Integer> headerMap, GroupColumns gmo, IMetadataField field) {
+        IMetadataGroup grp = field.createGroup();
+        // find metadata field
+        for (MetadataColumn col : gmo.getMetadataList()) {
+            if (StringUtils.isNotBlank(col.getEadName())) {
+                // get value, check for authority data
+                String metadataValue = data.get(headerMap.get(col.getExcelColumnName()));
+                String authorityData = null;
+                if (StringUtils.isNotBlank(col.getAuthorityColumnName())) {
+                    authorityData = data.get(headerMap.get(col.getAuthorityColumnName()));
+                }
+                // add field, if value is not empty
+                if (StringUtils.isNotBlank(metadataValue)) {
+                    for (IMetadataField subfield : grp.getFields()) {
+                        if (subfield.getName().equals(col.getEadName())) {
+                            createMetadataField(metadataValue, authorityData, subfield);
+                        }
+                    }
+                }
+            }
+
         }
     }
 
