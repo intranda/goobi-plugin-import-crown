@@ -130,7 +130,52 @@ The configuration is done in the file `plugin_intranda_import_crown.xml`:
             <!-- fixed metadata columns-->
             <additionalField column="Shelfmark" eadField="Shelfmark" metadataField="shelfmarksource" level="1"/>
             <additionalField column="Comment" eadField="oddnote" metadataField="Odd" level="6"/>
+            <!-- first option: complete name is in a single column, fixed role -->
+            <personField metadataField="Author" eadField="Author" authorityColumn="GND for Author1" level="2">
+                <!-- use this field if the column contains the complete name -->
+                <!-- set this field to true, if the name must be splitted into first- and lastname. The complete name gets written into lastname -->
+                <!-- define at which character the name is separated. @firstNameIsFirstPart defines, if the firstname is the first or last part of the name -->
+                <nameColumn splitName="true" splitChar="," firstNameIsFirstPart="false">Author1</nameColumn>
+            </personField>
 
+            <!-- second option: first name, last name, authority data in separate columns, fixed role -->
+            <personField metadataField="Author" eadField="Author" authorityColumn="GND for Author2" level="2">
+                <nameColumn splitName="false" splitChar="," firstNameIsFirstPart="false">Author lastname 2</nameColumn>
+                <firstnameColumn>Author firstname 2</firstnameColumn>
+            </personField>
+
+            <!-- third option: role also comes from a column. Can be different columns or the same column for ead and metadata names -->
+            <personField metadataField="Role" eadField="Role" level="2">
+                <nameColumn splitName="true" splitChar="," firstNameIsFirstPart="false">Person3</nameColumn>
+            </personField>
+
+
+            <!-- first option: complete name is in a single column, fixed role -->
+            <corporateField metadataField="HostInstitution" eadField="HostInstitution" authorityColumn="GND for Corporate1" level="2">
+                <nameColumn splitName="true" splitChar=";" >Corporate1</nameColumn>
+            </corporateField>
+
+            <!-- second option: names in separate columns, fixed role -->
+            <corporateField metadataField="HostInstitution" eadField="HostInstitution" level="2">
+                <nameColumn splitName="false">Corporate2 main name</nameColumn>
+                <subNameColumn>Corporate2 sub name</subNameColumn>
+                <partNameColumn>Corporate2 part name</partNameColumn>
+            </corporateField>
+
+            <!-- third option: role also comes from a column. Can be different columns or the same column for ead and metadata names -->
+            <corporateField metadataField="Corporate type" eadField="Corporate type" level="2">
+                <nameColumn splitName="true" splitChar="," >Corporate3</nameColumn>
+            </corporateField>
+
+
+            <group metadataField="Repository" eadField="repository" level="1"> 
+                <field column="RepositoryLabel" eadField="repositoryLabel" metadataField="RepositoryLabel" level="1" />
+                <field column="RepositoryAddress" eadField="repositoryaddressline" metadataField="RepositoryAddress" level="1" />
+                <field column="RepositoryLink" eadField="extrefhref" metadataField="RepositoryLink" level="1" />
+                <field column="RepositoryLinkName" eadField="extref" metadataField="RepositoryLinkName" level="1" />
+            </group>
+
+        </metadata>
         <!-- image folder name. Sub folder are organized by the identifier metadata -->
         <images>/opt/digiverso/import/crown/</images>
 
@@ -155,6 +200,10 @@ The node type to be used can then be defined if it is available as an Excel colu
 
 The generation of task titles is configured in `<title>`. The same rules apply here as in the normal creation mask. In addition, the two keywords `first` and `second` are available to access the content of the two hierarchical fields.
 
-The metadata mapping to EAD and METS/MODS is then configured. The first hierarchical field is defined in `<firstField>`, `<secondField>` optionally contains the content of the second field. If only one field is used, it can be deactivated using `enabled="false"`. Additional, permanently defined columns can be configured using `<additionalField>`. Here, the heading of the column must be specified in the `column` attribute. The other configuration options are identical to the other two. The `metadataField` field defines the metadata to be used within the METS/MODS file. The corresponding field in the EAD node is defined in `eadField` and `level` specifies the area in which the metadata is located. 
+The metadata mapping to EAD and METS/MODS is then configured. The first hierarchical field is defined in `<firstField>`, `<secondField>` optionally contains the content of the second field. If only one field is used, it can be deactivated using `enabled="false"`. Additional, permanently defined columns can be configured using `<additionalField>`. Here, the heading of the column must be specified in the `column` attribute. The other configuration options are identical to the other two. The `metadataField` field defines the metadata to be used within the METS/MODS file. The corresponding field in the EAD node is defined in `eadField` and `level` specifies the area in which the metadata is located. In `authorityColumn`, a column can optionally be defined that contains authority data for the field. This authority data is then not imported as separate fields, but belongs to the current metadata. Where possible, complete URIs should be used here, not just numbers.
 
 In addition, a field must be marked as `identifier="true"`. The content of this field must be unique for each line within the document and is used for the `id` of the EAD nodes and the metadata `NodeId`. It is used to link EAD nodes and Goobi processes.
+
+There are several ways to import persons or entities. Names can either be listed in a single column and split into different name parts during import, or a separate column can be used for each name part. The role to be used can either be configured fixed or defined in a separate column. Different roles can be set for METS and EAD.
+
+

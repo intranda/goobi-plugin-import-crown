@@ -131,6 +131,52 @@ Die Konfiguration erfolgt in der Datei `plugin_intranda_import_crown.xml`:
             <additionalField column="Shelfmark" eadField="Shelfmark" metadataField="shelfmarksource" level="1"/>
             <additionalField column="Comment" eadField="oddnote" metadataField="Odd" level="6"/>
 
+            <!-- first option: complete name is in a single column, fixed role -->
+            <personField metadataField="Author" eadField="Author" authorityColumn="GND for Author1" level="2">
+                <!-- use this field if the column contains the complete name -->
+                <!-- set this field to true, if the name must be splitted into first- and lastname. The complete name gets written into lastname -->
+                <!-- define at which character the name is separated. @firstNameIsFirstPart defines, if the firstname is the first or last part of the name -->
+                <nameColumn splitName="true" splitChar="," firstNameIsFirstPart="false">Author1</nameColumn>
+            </personField>
+
+            <!-- second option: first name, last name, authority data in separate columns, fixed role -->
+            <personField metadataField="Author" eadField="Author" authorityColumn="GND for Author2" level="2">
+                <nameColumn splitName="false" splitChar="," firstNameIsFirstPart="false">Author lastname 2</nameColumn>
+                <firstnameColumn>Author firstname 2</firstnameColumn>
+            </personField>
+
+            <!-- third option: role also comes from a column. Can be different columns or the same column for ead and metadata names -->
+            <personField metadataField="Role" eadField="Role" level="2">
+                <nameColumn splitName="true" splitChar="," firstNameIsFirstPart="false">Person3</nameColumn>
+            </personField>
+
+
+            <!-- first option: complete name is in a single column, fixed role -->
+            <corporateField metadataField="HostInstitution" eadField="HostInstitution" authorityColumn="GND for Corporate1" level="2">
+                <nameColumn splitName="true" splitChar=";" >Corporate1</nameColumn>
+            </corporateField>
+
+            <!-- second option: names in separate columns, fixed role -->
+            <corporateField metadataField="HostInstitution" eadField="HostInstitution" level="2">
+                <nameColumn splitName="false">Corporate2 main name</nameColumn>
+                <subNameColumn>Corporate2 sub name</subNameColumn>
+                <partNameColumn>Corporate2 part name</partNameColumn>
+            </corporateField>
+
+            <!-- third option: role also comes from a column. Can be different columns or the same column for ead and metadata names -->
+            <corporateField metadataField="Corporate type" eadField="Corporate type" level="2">
+                <nameColumn splitName="true" splitChar="," >Corporate3</nameColumn>
+            </corporateField>
+
+
+            <group metadataField="Repository" eadField="repository" level="1"> 
+                <field column="RepositoryLabel" eadField="repositoryLabel" metadataField="RepositoryLabel" level="1" />
+                <field column="RepositoryAddress" eadField="repositoryaddressline" metadataField="RepositoryAddress" level="1" />
+                <field column="RepositoryLink" eadField="extrefhref" metadataField="RepositoryLink" level="1" />
+                <field column="RepositoryLinkName" eadField="extref" metadataField="RepositoryLinkName" level="1" />
+            </group>
+
+        </metadata>
         <!-- image folder name. Sub folder are organized by the identifier metadata -->
         <images>/opt/digiverso/import/crown/</images>
 
@@ -155,7 +201,14 @@ Anschließend kann der zu verwendende Knotentyp definiert werden, falls dieser a
 
 In `<title>` wird die Generierung der Vorgangstitel konfiguiert. Hier gelten die selben Regeln wie in der normalen Anlegemaske. Zusätzlich stehen die beiden Schlüsselworte `first` und `second` zur Verfügung, um auf den Inhalt der beiden hierarchischen Felder zugreifen zu können.
 
-Anschließend erfolgt die Konfiguration des Metadatenmappings zu EAD und METS/MODS. In `<firstField>` wird das erste hierarchische Feld definiert, `<secondField>` enthält optional den Inhalt des zweiten Feldes. Wenn nur mit einem Feld gearbeitet wird, kann es mittels `enabled="false"` deaktiviert werden. Zusätzliche, fest definierte Spalten lassen sich mittels `<additionalField>` konfigurieren. Hier muss im Attribut `column` angegeben werden, wie die Überschrift der Spalte lautet. Die anderen Konfigurationsoptionen sind identisch zu den anderen beiden. Das Feld `metadataField` definiert das zu verwendende Metadatum innerhalb der METS/MODS Datei. In `eadField` wird das entsprechende Feld im EAD-Knoten definiert und `level` gibt an, in welchem Bereich sich das Metadatum befindet. 
+Anschließend erfolgt die Konfiguration des Metadatenmappings zu EAD und METS/MODS. In `<firstField>` wird das erste hierarchische Feld definiert, `<secondField>` enthält optional den Inhalt des zweiten Feldes. Wenn nur mit einem Feld gearbeitet wird, kann es mittels `enabled="false"` deaktiviert werden. Zusätzliche, fest definierte Spalten lassen sich mittels `<additionalField>` konfigurieren. Hier muss im Attribut `column` angegeben werden, wie die Überschrift der Spalte lautet. Die anderen Konfigurationsoptionen sind identisch zu den anderen beiden. Das Feld `metadataField` definiert das zu verwendende Metadatum innerhalb der METS/MODS Datei. In `eadField` wird das entsprechende Feld im EAD-Knoten definiert und `level` gibt an, in welchem Bereich sich das Metadatum befindet. In `authorityColumn` kann optional eine Spalte definiert werden, in der Normdaten zu dem Feld enthalten sind. Diese Normdaten werden dann nicht als eigenständige Felder importiert, sondern gehören zum aktuellen Metadatum. Hier sind nach Möglichkeit vollständige URI zu verwenden und nicht nur Nummern.
 
 Zusätzlich muss ein Feld als `identifier="true"` markiert werden. Der Inhalt dieses Feldes muss für jede Zeile innerhalb des Dokuments eindeutig sein und wird für die `id` der EAD-Knoten und das Metadatum `NodeId` verwendet. Es dient zur Verknüpfung zwischen EAD-Knoten und Goobi-Vorgang.
+
+Es gibt mehrere Wege, um Personen oder Körperschaften zu importieren. Namen können entweder in einer Spalte stehen und werden beim Import in die verschiedenen Namensteile aufgesplitted oder es kann pro Namensteil eine Spalte genutzt werden. Die zu nutztende Rolle kann entweder fest konfiguriert werden oder in einer eigenen Spalte definiert werden. Dabei kann können für METS und EAD unterschiedliche Angaben gemacht werden.
+
+Die Angaben werden innerhalb von `<personField>` beziehungsweise `<corporateField>` definiert. Wie bei den anderen Feldern auch können die Attribute `metadataField`, `eadField`, `level` und `authorityColumn` verwendet werden. Die beiden Attribute `metadataField`, `eadField` können entweder eine feste Rolle enthalten oder einen Spaltennamen. Innerhalb des Feldes gibt es das Unterelement `<nameColumn>`, in dem der Spaltenname definiert wurde. Hier kann mittels `splitName="true/false"` angegeben werden, ob der Inhalt der Spalte aufgeteilt werden soll oder ob zusätzliche Felder für andere Namensteile existieren. Wenn der Inhalt aufgeteilt werden soll, kann mittels `splitChar=","` das Zeichen definiert werden, an dem die Trennung erfolgen soll. In `firstNameIsFirstPart="true/false"` kann bei Personen festgelegt werden, ob die Angabe in der Spalte in der Form Vorname Nachname oder Nachname Vorname erfolgt.
+Wenn keine Aufsplittung erfolgen soll, dann enhält das Feld den Hauptnamen/Nachnamen und Spalten mit weiteren Namensteilen können in `<firstnameColumn>`, bwziehungsweise `<subNameColumn>` und `<partNameColumn>` konfiguriert werden.
+
+Gruppierte Daten lassen sich mit Hilfe des `<group>` Elements ebenfalls importieren. Die Attrbiute  `metadataField` und `eadField` enthalten den Namen der Gruppe im Regelsatz und Archivmanagent und in den `<field>` Angaben werden die einzelnen Metadaten der Gruppe definiert. Hier können die gleichen Angaben konfiguriert werden, wie bei `<additionalField>`. 
 
