@@ -111,6 +111,13 @@
                 <nameColumn splitName="true" splitChar="," >Corporate3</nameColumn>
             </corporateField>
 
+            <!-- group field -->
+            <group metadataField="Repository" eadField="repository" level="1"> 
+                <field column="RepositoryLabel" eadField="repositoryLabel" metadataField="RepositoryLabel" level="1" />
+                <field column="RepositoryAddress" eadField="repositoryaddressline" metadataField="RepositoryAddress" level="1" />
+                <field column="RepositoryLink" eadField="extrefhref" metadataField="RepositoryLink" level="1" />
+                <field column="RepositoryLinkName" eadField="extref" metadataField="RepositoryLinkName" level="1" />
+            </group>
         </metadata>
 
         <!-- image folder name. Sub folder are organized by the identifier metadata -->
