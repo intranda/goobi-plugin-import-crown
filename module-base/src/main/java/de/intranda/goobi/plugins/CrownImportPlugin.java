@@ -22,7 +22,7 @@ import org.apache.commons.configuration.XMLConfiguration;
 import org.apache.commons.configuration.reloading.FileChangedReloadingStrategy;
 import org.apache.commons.configuration.tree.xpath.XPathExpressionEngine;
 import org.apache.commons.io.input.BOMInputStream;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.CellType;
@@ -37,6 +37,7 @@ import org.goobi.interfaces.IArchiveManagementAdministrationPlugin;
 import org.goobi.interfaces.IEadEntry;
 import org.goobi.interfaces.IFieldValue;
 import org.goobi.interfaces.IMetadataField;
+import org.goobi.interfaces.IMetadataGroup;
 import org.goobi.interfaces.INodeType;
 import org.goobi.production.enums.ImportReturnValue;
 import org.goobi.production.enums.ImportType;
@@ -59,11 +60,15 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
 import net.xeoh.plugins.base.annotations.PluginImplementation;
+import ugh.dl.Corporate;
 import ugh.dl.DigitalDocument;
 import ugh.dl.DocStruct;
 import ugh.dl.Fileformat;
 import ugh.dl.Metadata;
+import ugh.dl.MetadataGroup;
 import ugh.dl.MetadataType;
+import ugh.dl.NamePart;
+import ugh.dl.Person;
 import ugh.dl.Prefs;
 import ugh.exceptions.DocStructHasNoTypeException;
 import ugh.exceptions.MetadataTypeNotAllowedException;
@@ -126,6 +131,9 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
 
     private transient List<MetadataColumn> columnList = new ArrayList<>();
 
+    private transient List<PersonColumn> personList = new ArrayList<>();
+    private transient List<CorporateColumn> corpList = new ArrayList<>();
+    private transient List<GroupColumns> groupList = new ArrayList<>();
     private transient MetadataColumn firstColumn = null;
     private transient MetadataColumn secondColumn = null;
 
@@ -178,6 +186,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             firstColumn.setEadName(firstFieldDefinition.getString("@eadField"));
             firstColumn.setLevel(firstFieldDefinition.getInt("@level", 0));
             firstColumn.setIdentifierField(firstFieldDefinition.getBoolean("@identifier", false));
+            firstColumn.setAuthorityColumnName(firstFieldDefinition.getString("@authorityDataColumn"));
 
             SubnodeConfiguration secondFieldDefinition = myconfig.configurationAt("/metadata/secondField");
             if (secondFieldDefinition.getBoolean("@enabled")) {
@@ -186,18 +195,61 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                 secondColumn.setEadName(secondFieldDefinition.getString("@eadField"));
                 secondColumn.setLevel(secondFieldDefinition.getInt("@level", 0));
                 secondColumn.setIdentifierField(secondFieldDefinition.getBoolean("@identifier", false));
+                secondColumn.setAuthorityColumnName(secondFieldDefinition.getString("@authorityDataColumn"));
             }
 
             columnList.clear();
 
             for (HierarchicalConfiguration field : myconfig.configurationsAt("/metadata/additionalField")) {
-                MetadataColumn mc = new MetadataColumn();
-                mc.setRulesetName(field.getString("@metadataField"));
-                mc.setEadName(field.getString("@eadField"));
-                mc.setLevel(field.getInt("@level", 0));
-                mc.setIdentifierField(field.getBoolean("@identifier", false));
-                mc.setExcelColumnName(field.getString("@column"));
+                MetadataColumn mc = extracted(field);
                 columnList.add(mc);
+            }
+            personList.clear();
+
+            for (HierarchicalConfiguration field : myconfig.configurationsAt("/metadata/personField")) {
+                PersonColumn pc = new PersonColumn();
+                pc.setRulesetName(field.getString("@metadataField"));
+                pc.setEadName(field.getString("@eadField"));
+                pc.setAuthorityColumnName(field.getString("@authorityColumn"));
+                pc.setLevel(field.getInt("@level", 0));
+                pc.setNameColumnName(field.getString("/nameColumn"));
+                pc.setSplitName(field.getBoolean("/nameColumn/@splitName", false));
+                pc.setSplitChar(field.getString("/nameColumn/@splitChar", ","));
+                pc.setFirstNameIsFirst(field.getBoolean("/nameColumn/@firstNameIsFirstPart", false));
+                pc.setFirstColumnName(field.getString("/firstnameColumn"));
+                personList.add(pc);
+            }
+
+            corpList.clear();
+            for (HierarchicalConfiguration field : myconfig.configurationsAt("/metadata/corporateField")) {
+                CorporateColumn cc = new CorporateColumn();
+                cc.setRulesetName(field.getString("@metadataField"));
+                cc.setEadName(field.getString("@eadField"));
+                cc.setAuthorityColumnName(field.getString("@authorityColumn"));
+                cc.setLevel(field.getInt("@level", 0));
+                cc.setNameColumnName(field.getString("/nameColumn"));
+                cc.setSplitName(field.getBoolean("/nameColumn/@splitName", false));
+                cc.setSplitChar(field.getString("/nameColumn/@splitChar", ","));
+                cc.setSubNameColumnName(field.getString("/subNameColumn"));
+                cc.setPartNameColumnName(field.getString("/partNameColumn"));
+                corpList.add(cc);
+            }
+            groupList.clear();
+            List<HierarchicalConfiguration> gml = myconfig.configurationsAt("/metadata/group");
+            for (HierarchicalConfiguration md : gml) {
+                GroupColumns grp = new GroupColumns();
+                grp.setRulesetName(md.getString("@metadataField"));
+                grp.setEadName(md.getString("@eadField"));
+                grp.setLevel(md.getInt("@level", 0));
+
+                List<HierarchicalConfiguration> subList = md.configurationsAt("/field");
+                for (HierarchicalConfiguration sub : subList) {
+                    MetadataColumn mc = extracted(sub);
+                    grp.addMetadataColumn(mc);
+                }
+
+                groupList.add(grp);
+
             }
 
             // process title generation
@@ -207,6 +259,17 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             titleParts = Arrays.asList(myconfig.getStringArray("/metadata/title"));
 
         }
+    }
+
+    public MetadataColumn extracted(HierarchicalConfiguration field) {
+        MetadataColumn mc = new MetadataColumn();
+        mc.setRulesetName(field.getString("@metadataField"));
+        mc.setEadName(field.getString("@eadField"));
+        mc.setLevel(field.getInt("@level", 0));
+        mc.setIdentifierField(field.getBoolean("@identifier", false));
+        mc.setExcelColumnName(field.getString("@column"));
+        mc.setAuthorityColumnName(field.getString("@authorityDataColumn"));
+        return mc;
     }
 
     /**
@@ -417,30 +480,115 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
         // add identifier and label
 
         if (StringUtils.isNotBlank(firstColumn.getEadName())) {
-            addMetadataToNode(entry, firstColumn, firstValue);
+            String authorityData = null;
+            if (StringUtils.isNotBlank(firstColumn.getAuthorityColumnName())) {
+                authorityData = data.get(headerMap.get(firstColumn.getAuthorityColumnName()));
+            }
+            addMetadataToNode(entry, firstColumn, firstValue, authorityData);
         }
 
         if (secondColumn != null && StringUtils.isNotBlank(secondColumn.getEadName())) {
-            addMetadataToNode(entry, secondColumn, secondValue);
+            String authorityData = null;
+            if (StringUtils.isNotBlank(secondColumn.getAuthorityColumnName())) {
+                authorityData = data.get(headerMap.get(secondColumn.getAuthorityColumnName()));
+            }
+            addMetadataToNode(entry, secondColumn, secondValue, authorityData);
 
         }
 
         for (MetadataColumn col : columnList) {
             String metadataValue = data.get(headerMap.get(col.getExcelColumnName()));
-            addMetadataToNode(entry, col, metadataValue);
+            String authorityData = null;
+            if (StringUtils.isNotBlank(col.getAuthorityColumnName())) {
+                authorityData = data.get(headerMap.get(col.getAuthorityColumnName()));
+            }
+            addMetadataToNode(entry, col, metadataValue, authorityData);
             if ("TitleDocMain".equals(col.getRulesetName())) {
                 entry.setLabel(metadataValue);
             }
         }
+        for (PersonColumn col : personList) {
+            String firstname = null;
+            String lastname = null;
+            if (col.isSplitName()) {
+                String name = data.get(headerMap.get(col.getNameColumnName()));
+                if (StringUtils.isNotBlank(name)) {
+                    if (name.contains(col.getSplitChar())) {
+                        if (col.isFirstNameIsFirst()) {
+                            firstname = name.substring(0, name.lastIndexOf(col.getSplitChar()));
+                            lastname = name.substring(name.lastIndexOf(col.getSplitChar()) + 1);
+                        } else {
+                            lastname = name.substring(0, name.lastIndexOf(col.getSplitChar()));
+                            firstname = name.substring(name.lastIndexOf(col.getSplitChar()) + 1);
+                        }
+                    } else {
+                        firstname = "";
+                        lastname = name;
+                    }
+                }
+            } else {
+                firstname = data.get(headerMap.get(col.getFirstColumnName()));
+                lastname = data.get(headerMap.get(col.getNameColumnName()));
+            }
+            String authorityData = null;
+            if (StringUtils.isNotBlank(col.getAuthorityColumnName())) {
+                authorityData = data.get(headerMap.get(col.getAuthorityColumnName()));
+            }
+            String role = col.getEadName();
+            // column header was configured, use value from column
+            if (data.containsKey(headerMap.get(role))) {
+                role = data.get(headerMap.get(role));
+            }
+            addPersonToNode(entry, col, role, firstname, lastname, authorityData);
+        }
+
+        for (CorporateColumn col : corpList) {
+            String mainName = "";
+            String subName = "";
+            String partName = "";
+            if (col.isSplitName()) {
+                String name = data.get(headerMap.get(col.getNameColumnName()));
+                if (StringUtils.isNotBlank(name)) {
+                    String[] nameParts = name.split(col.getSplitChar());
+                    mainName = nameParts[0];
+                    if (nameParts.length > 1) {
+                        subName = nameParts[1];
+                    }
+                    if (nameParts.length > 2) {
+                        partName = nameParts[2];
+                    }
+                }
+            } else {
+                mainName = data.get(headerMap.get(col.getNameColumnName()));
+                subName = data.get(headerMap.get(col.getSubNameColumnName()));
+                partName = data.get(headerMap.get(col.getPartNameColumnName()));
+            }
+
+            String authorityData = null;
+            if (StringUtils.isNotBlank(col.getAuthorityColumnName())) {
+                authorityData = data.get(headerMap.get(col.getAuthorityColumnName()));
+            }
+            String role = col.getEadName();
+            if (data.containsKey(headerMap.get(role))) {
+                role = data.get(headerMap.get(role));
+            }
+
+            addCorporateToNode(entry, col.getLevel(), role, mainName, subName, partName, authorityData);
+        }
+
+        for (GroupColumns gmo : groupList) {
+            addGroupToNode(entry, data, headerMap, gmo);
+        }
 
         // identifierField
-
         if (firstColumn.isIdentifierField()) {
             entry.setId(firstValue);
         } else if (secondColumn != null && secondColumn.isIdentifierField()) {
             entry.setId(secondValue);
         } else {
-            for (MetadataColumn col : columnList) {
+            for (
+
+            MetadataColumn col : columnList) {
                 if (col.isIdentifierField()) {
                     entry.setId(data.get(headerMap.get(col.getExcelColumnName())));
                 }
@@ -454,7 +602,264 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
         }
     }
 
-    private void addMetadataToNode(IEadEntry entry, MetadataColumn column, String stringValue) {
+    public void addGroupToNode(IEadEntry entry, Map<Integer, String> data, Map<String, Integer> headerMap, GroupColumns gmo) {
+        switch (gmo.getLevel()) {
+            case 1:
+                for (IMetadataField field : entry.getIdentityStatementAreaList()) {
+                    if (field.getName().equals(gmo.getEadName())) {
+                        addGroupMetadata(data, headerMap, gmo, field);
+                    }
+
+                }
+                break;
+            case 2:
+                for (IMetadataField field : entry.getContextAreaList()) {
+                    if (field.getName().equals(gmo.getEadName())) {
+
+                    }
+                }
+                break;
+
+            case 3:
+                for (IMetadataField field : entry.getContentAndStructureAreaAreaList()) {
+                    if (field.getName().equals(gmo.getEadName())) {
+
+                        return;
+                    }
+                }
+                break;
+            case 4:
+                for (IMetadataField field : entry.getAccessAndUseAreaList()) {
+                    if (field.getName().equals(gmo.getEadName())) {
+
+                        return;
+                    }
+                }
+                break;
+            case 5:
+                for (IMetadataField field : entry.getAlliedMaterialsAreaList()) {
+                    if (field.getName().equals(gmo.getEadName())) {
+
+                        return;
+                    }
+                }
+
+                break;
+            case 6:
+                for (IMetadataField field : entry.getNotesAreaList()) {
+                    if (field.getName().equals(gmo.getEadName())) {
+
+                        return;
+                    }
+                }
+                break;
+            case 7:
+                for (IMetadataField field : entry.getDescriptionControlAreaList()) {
+                    if (field.getName().equals(gmo.getEadName())) {
+
+                        return;
+                    }
+                }
+                break;
+            default:
+                break;
+
+        }
+    }
+
+    public void addGroupMetadata(Map<Integer, String> data, Map<String, Integer> headerMap, GroupColumns gmo, IMetadataField field) {
+        IMetadataGroup grp = field.createGroup();
+        // find metadata field
+        for (MetadataColumn col : gmo.getMetadataList()) {
+            if (StringUtils.isNotBlank(col.getEadName())) {
+                // get value, check for authority data
+                String metadataValue = data.get(headerMap.get(col.getExcelColumnName()));
+                String authorityData = null;
+                if (StringUtils.isNotBlank(col.getAuthorityColumnName())) {
+                    authorityData = data.get(headerMap.get(col.getAuthorityColumnName()));
+                }
+                // add field, if value is not empty
+                if (StringUtils.isNotBlank(metadataValue)) {
+                    for (IMetadataField subfield : grp.getFields()) {
+                        if (subfield.getName().equals(col.getEadName())) {
+                            createMetadataField(metadataValue, authorityData, subfield);
+                        }
+                    }
+                }
+            }
+
+        }
+    }
+
+    private void addCorporateToNode(IEadEntry entry, int level, String role, String mainName, String subName, String partName, String authorityData) {
+        if (StringUtils.isBlank(mainName)) {
+            return;
+        }
+        switch (level) {
+            case 1:
+                for (IMetadataField field : entry.getIdentityStatementAreaList()) {
+                    if (field.getName().equals(role)) {
+                        createCorporateField(mainName, subName, partName, authorityData, field);
+                        return;
+                    }
+                }
+                break;
+            case 2:
+                for (IMetadataField field : entry.getContextAreaList()) {
+                    if (field.getName().equals(role)) {
+                        createCorporateField(mainName, subName, partName, authorityData, field);
+                        return;
+                    }
+                }
+                break;
+            case 3:
+                for (IMetadataField field : entry.getContentAndStructureAreaAreaList()) {
+                    if (field.getName().equals(role)) {
+                        createCorporateField(mainName, subName, partName, authorityData, field);
+                        return;
+                    }
+                }
+                break;
+            case 4:
+                for (IMetadataField field : entry.getAccessAndUseAreaList()) {
+                    if (field.getName().equals(role)) {
+                        createCorporateField(mainName, subName, partName, authorityData, field);
+                        return;
+                    }
+                }
+                break;
+            case 5:
+                for (IMetadataField field : entry.getAlliedMaterialsAreaList()) {
+                    if (field.getName().equals(role)) {
+                        createCorporateField(mainName, subName, partName, authorityData, field);
+                        return;
+                    }
+                }
+
+                break;
+            case 6:
+                for (IMetadataField field : entry.getNotesAreaList()) {
+                    if (field.getName().equals(role)) {
+                        createCorporateField(mainName, subName, partName, authorityData, field);
+                        return;
+                    }
+                }
+                break;
+            case 7:
+                for (IMetadataField field : entry.getDescriptionControlAreaList()) {
+                    if (field.getName().equals(role)) {
+                        createCorporateField(mainName, subName, partName, authorityData, field);
+                        return;
+                    }
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void addPersonToNode(IEadEntry entry, PersonColumn column, String role, String firstname, String lastname, String authorityData) {
+        if (StringUtils.isBlank(firstname) && StringUtils.isBlank(lastname)) {
+            return;
+        }
+        switch (column.getLevel()) {
+            case 1:
+                for (IMetadataField field : entry.getIdentityStatementAreaList()) {
+                    if (field.getName().equals(role)) {
+                        createPersonField(firstname, lastname, authorityData, field);
+                        return;
+                    }
+                }
+                break;
+            case 2:
+                for (IMetadataField field : entry.getContextAreaList()) {
+                    if (field.getName().equals(role)) {
+                        createPersonField(firstname, lastname, authorityData, field);
+                        return;
+                    }
+                }
+                break;
+            case 3:
+                for (IMetadataField field : entry.getContentAndStructureAreaAreaList()) {
+                    if (field.getName().equals(role)) {
+                        createPersonField(firstname, lastname, authorityData, field);
+                        return;
+                    }
+                }
+                break;
+            case 4:
+                for (IMetadataField field : entry.getAccessAndUseAreaList()) {
+                    if (field.getName().equals(role)) {
+                        createPersonField(firstname, lastname, authorityData, field);
+                        return;
+                    }
+                }
+                break;
+            case 5:
+                for (IMetadataField field : entry.getAlliedMaterialsAreaList()) {
+                    if (field.getName().equals(role)) {
+                        createPersonField(firstname, lastname, authorityData, field);
+                        return;
+                    }
+                }
+
+                break;
+            case 6:
+                for (IMetadataField field : entry.getNotesAreaList()) {
+                    if (field.getName().equals(role)) {
+                        createPersonField(firstname, lastname, authorityData, field);
+                        return;
+                    }
+                }
+                break;
+            case 7:
+                for (IMetadataField field : entry.getDescriptionControlAreaList()) {
+                    if (field.getName().equals(role)) {
+                        createPersonField(firstname, lastname, authorityData, field);
+                        return;
+                    }
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    public void createCorporateField(String mainName, String subName, String partName, String authorityData, IMetadataField field) {
+        IFieldValue value = field.createFieldValue();
+        value.setMainName(mainName);
+        value.setSubName(subName);
+        value.setPartName(partName);
+
+        if (StringUtils.isNotBlank(authorityData)) {
+            value.setAuthorityValue(authorityData);
+        }
+        List<IFieldValue> existingValues = field.getValues();
+        if (existingValues == null) {
+            existingValues = Arrays.asList(value);
+        } else {
+            existingValues.add(value);
+        }
+        field.setValues(existingValues);
+    }
+
+    public void createPersonField(String firstname, String lastname, String authorityData, IMetadataField field) {
+        IFieldValue value = field.createFieldValue();
+        value.setFirstname(firstname);
+        value.setLastname(lastname);
+        if (StringUtils.isNotBlank(authorityData)) {
+            value.setAuthorityValue(authorityData);
+        }
+        List<IFieldValue> existingValues = field.getValues();
+        if (existingValues == null) {
+            existingValues = Arrays.asList(value);
+        } else {
+            existingValues.add(value);
+        }
+        field.setValues(existingValues);
+    }
+
+    private void addMetadataToNode(IEadEntry entry, MetadataColumn column, String stringValue, String authorityData) {
         if (StringUtils.isBlank(stringValue)) {
             return;
         }
@@ -463,9 +868,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             case 1:
                 for (IMetadataField field : entry.getIdentityStatementAreaList()) {
                     if (field.getName().equals(column.getEadName())) {
-                        IFieldValue value = field.createFieldValue();
-                        value.setValue(stringValue);
-                        field.setValues(Arrays.asList(value));
+                        createMetadataField(stringValue, authorityData, field);
                         return;
                     }
                 }
@@ -473,9 +876,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             case 2:
                 for (IMetadataField field : entry.getContextAreaList()) {
                     if (field.getName().equals(column.getEadName())) {
-                        IFieldValue value = field.createFieldValue();
-                        value.setValue(stringValue);
-                        field.setValues(Arrays.asList(value));
+                        createMetadataField(stringValue, authorityData, field);
                         return;
                     }
                 }
@@ -483,9 +884,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             case 3:
                 for (IMetadataField field : entry.getContentAndStructureAreaAreaList()) {
                     if (field.getName().equals(column.getEadName())) {
-                        IFieldValue value = field.createFieldValue();
-                        value.setValue(stringValue);
-                        field.setValues(Arrays.asList(value));
+                        createMetadataField(stringValue, authorityData, field);
                         return;
                     }
                 }
@@ -493,9 +892,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             case 4:
                 for (IMetadataField field : entry.getAccessAndUseAreaList()) {
                     if (field.getName().equals(column.getEadName())) {
-                        IFieldValue value = field.createFieldValue();
-                        value.setValue(stringValue);
-                        field.setValues(Arrays.asList(value));
+                        createMetadataField(stringValue, authorityData, field);
                         return;
                     }
                 }
@@ -503,9 +900,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             case 5:
                 for (IMetadataField field : entry.getAlliedMaterialsAreaList()) {
                     if (field.getName().equals(column.getEadName())) {
-                        IFieldValue value = field.createFieldValue();
-                        value.setValue(stringValue);
-                        field.setValues(Arrays.asList(value));
+                        createMetadataField(stringValue, authorityData, field);
                         return;
                     }
                 }
@@ -514,9 +909,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             case 6:
                 for (IMetadataField field : entry.getNotesAreaList()) {
                     if (field.getName().equals(column.getEadName())) {
-                        IFieldValue value = field.createFieldValue();
-                        value.setValue(stringValue);
-                        field.setValues(Arrays.asList(value));
+                        createMetadataField(stringValue, authorityData, field);
                         return;
                     }
                 }
@@ -524,9 +917,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             case 7:
                 for (IMetadataField field : entry.getDescriptionControlAreaList()) {
                     if (field.getName().equals(column.getEadName())) {
-                        IFieldValue value = field.createFieldValue();
-                        value.setValue(stringValue);
-                        field.setValues(Arrays.asList(value));
+                        createMetadataField(stringValue, authorityData, field);
                         return;
                     }
                 }
@@ -534,6 +925,21 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             default:
                 break;
         }
+    }
+
+    public void createMetadataField(String stringValue, String authorityData, IMetadataField field) {
+        IFieldValue value = field.createFieldValue();
+        value.setValue(stringValue);
+        if (StringUtils.isNotBlank(authorityData)) {
+            value.setAuthorityValue(authorityData);
+        }
+        List<IFieldValue> existingValues = field.getValues();
+        if (existingValues == null) {
+            existingValues = Arrays.asList(value);
+        } else {
+            existingValues.add(value);
+        }
+        field.setValues(existingValues);
     }
 
     /**
@@ -621,6 +1027,11 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             try {
                 Metadata idMetadata = new Metadata(prefs.getMetadataTypeByName(firstColumn.getRulesetName()));
                 idMetadata.setValue(firstCol);
+                String authorityData = null;
+                if (StringUtils.isNotBlank(firstColumn.getAuthorityColumnName())) {
+                    authorityData = data.get(headerMap.get(firstColumn.getAuthorityColumnName()));
+                }
+                idMetadata.setAuthorityValue(authorityData);
                 logical.addMetadata(idMetadata);
             } catch (MetadataTypeNotAllowedException | DocStructHasNoTypeException e) {
                 log.error(e);
@@ -628,7 +1039,12 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
 
             if (secondColumn != null && StringUtils.isNotBlank(secondCol)) {
                 try {
+                    String authorityData = null;
+                    if (StringUtils.isNotBlank(secondColumn.getAuthorityColumnName())) {
+                        authorityData = data.get(headerMap.get(secondColumn.getAuthorityColumnName()));
+                    }
                     Metadata desc = new Metadata(prefs.getMetadataTypeByName(secondColumn.getRulesetName()));
+                    desc.setAuthorityValue(authorityData);
                     desc.setValue(secondCol);
                     logical.addMetadata(desc);
                 } catch (MetadataTypeNotAllowedException | DocStructHasNoTypeException e) {
@@ -641,13 +1057,150 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                 if (StringUtils.isNotBlank(col.getRulesetName())) {
                     String value = data.get(headerMap.get(col.getExcelColumnName()));
                     if (StringUtils.isNotBlank(value)) {
+                        String authorityData = null;
+                        if (StringUtils.isNotBlank(col.getAuthorityColumnName())) {
+                            authorityData = data.get(headerMap.get(col.getAuthorityColumnName()));
+                        }
                         try {
                             Metadata meta = new Metadata(prefs.getMetadataTypeByName(col.getRulesetName()));
+                            meta.setAuthorityValue(authorityData);
                             meta.setValue(value);
                             logical.addMetadata(meta);
                         } catch (MetadataTypeNotAllowedException | DocStructHasNoTypeException e) {
                             log.error(e);
                         }
+                    }
+                }
+            }
+            for (PersonColumn col : personList) {
+                String firstname = null;
+                String lastname = null;
+                if (col.isSplitName()) {
+                    String name = data.get(headerMap.get(col.getNameColumnName()));
+                    if (StringUtils.isNotBlank(name)) {
+                        if (name.contains(col.getSplitChar())) {
+                            if (col.isFirstNameIsFirst()) {
+                                firstname = name.substring(0, name.lastIndexOf(col.getSplitChar()));
+                                lastname = name.substring(name.lastIndexOf(col.getSplitChar()) + 1);
+                            } else {
+                                lastname = name.substring(0, name.lastIndexOf(col.getSplitChar()));
+                                firstname = name.substring(name.lastIndexOf(col.getSplitChar()) + 1);
+                            }
+                        } else {
+                            firstname = "";
+                            lastname = name;
+                        }
+                    }
+                } else {
+                    firstname = data.get(headerMap.get(col.getFirstColumnName()));
+                    lastname = data.get(headerMap.get(col.getNameColumnName()));
+                }
+
+                String authorityData = null;
+                if (StringUtils.isNotBlank(col.getAuthorityColumnName())) {
+                    authorityData = data.get(headerMap.get(col.getAuthorityColumnName()));
+                }
+                String role = col.getRulesetName();
+                // column header was configured, use value from column
+                if (data.containsKey(headerMap.get(role))) {
+                    role = data.get(headerMap.get(role));
+                }
+                try {
+                    Person p = new Person(prefs.getMetadataTypeByName(role));
+                    p.setFirstname(firstname);
+                    p.setLastname(lastname);
+                    p.setAuthorityFile("-", "-", authorityData);
+                    logical.addPerson(p);
+                } catch (MetadataTypeNotAllowedException | DocStructHasNoTypeException e) {
+                    log.error(e);
+                }
+
+            }
+            for (CorporateColumn col : corpList) {
+                String mainName = null;
+                String subName = null;
+                String partName = null;
+                if (col.isSplitName()) {
+                    String name = data.get(headerMap.get(col.getNameColumnName()));
+                    if (StringUtils.isNotBlank(name)) {
+                        String[] nameParts = name.split(col.getSplitChar());
+                        mainName = nameParts[0];
+                        if (nameParts.length > 1) {
+                            subName = nameParts[1];
+                        }
+                        if (nameParts.length > 2) {
+                            partName = nameParts[2];
+                        }
+                    }
+                } else {
+                    mainName = data.get(headerMap.get(col.getNameColumnName()));
+                    subName = data.get(headerMap.get(col.getSubNameColumnName()));
+                    partName = data.get(headerMap.get(col.getPartNameColumnName()));
+                }
+
+                String authorityData = null;
+                if (StringUtils.isNotBlank(col.getAuthorityColumnName())) {
+                    authorityData = data.get(headerMap.get(col.getAuthorityColumnName()));
+                }
+                String role = col.getRulesetName();
+                if (data.containsKey(headerMap.get(role))) {
+                    role = data.get(headerMap.get(role));
+                }
+                try {
+                    Corporate c = new Corporate(prefs.getMetadataTypeByName(role));
+                    c.setMainName(mainName);
+                    if (StringUtils.isNotBlank(subName)) {
+                        c.addSubName(new NamePart("subname", subName));
+                    }
+                    c.setPartName(partName);
+                    c.setAuthorityFile("-", "-", authorityData);
+                    logical.addCorporate(c);
+                } catch (MetadataTypeNotAllowedException | DocStructHasNoTypeException e) {
+                    log.error(e);
+                }
+
+            }
+
+            for (GroupColumns gmo : groupList) {
+                // create group, if configured
+                if (StringUtils.isNotBlank(gmo.getRulesetName())) {
+                    try {
+                        MetadataGroup group = new MetadataGroup(prefs.getMetadataGroupTypeByName(gmo.getRulesetName()));
+                        if (group != null) {
+                            // add metadata to group, if value exists
+                            for (MetadataColumn col : gmo.getMetadataList()) {
+                                if (StringUtils.isNotBlank(col.getRulesetName())) {
+                                    String value = data.get(headerMap.get(col.getExcelColumnName()));
+                                    if (StringUtils.isNotBlank(value)) {
+                                        String authorityData = null;
+                                        if (StringUtils.isNotBlank(col.getAuthorityColumnName())) {
+                                            authorityData = data.get(headerMap.get(col.getAuthorityColumnName()));
+                                        }
+                                        try {
+                                            Metadata meta = new Metadata(prefs.getMetadataTypeByName(col.getRulesetName()));
+                                            meta.setAuthorityValue(authorityData);
+                                            meta.setValue(value);
+                                            group.addMetadata(meta);
+                                        } catch (MetadataTypeNotAllowedException | DocStructHasNoTypeException e) {
+                                            log.error(e);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        // only add group to docstruct, if it is not empty
+                        boolean groupHasMetadata = false;
+                        for (Metadata meta : group.getMetadataList()) {
+                            if (StringUtils.isNotBlank(meta.getValue())) {
+                                groupHasMetadata = true;
+                            }
+                        }
+                        if (groupHasMetadata) {
+                            logical.addMetadataGroup(group);
+                        }
+
+                    } catch (UGHException e) {
+                        log.error(e);
                     }
                 }
             }

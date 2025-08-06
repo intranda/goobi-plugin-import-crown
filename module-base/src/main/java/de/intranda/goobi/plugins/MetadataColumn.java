@@ -15,4 +15,6 @@ public class MetadataColumn {
     private String excelColumnName;
 
     private boolean identifierField;
+
+    private String authorityColumnName;
 }
