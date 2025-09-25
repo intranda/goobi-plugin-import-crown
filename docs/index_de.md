@@ -65,6 +65,8 @@ Als nächstes wird der Inhalt der Zellen gelesen. Dabei werden sowohl die hierar
 
 Welcher Inhalt zu welchem EAD- oder Metadatenfeld importiert wird, wird in der dazugehörigen Konfigurationsdatei festgelegt.
 
+Wenn der zu importierende Bestand schon existiert, wird die Zeile mit dem root-Element geprüft. Falls die ID des root-Knotens aus der Exceldatei bereits in einem Knoten im Bestand vergeben wurde, wird dieser Knoten als oberster Knoten im Import genutzt und die Hierarchie der Exceldatei ist dann relativ zu diesem Knoten. Existiert die ID noch nicht, werden alle weiteren Elemente als Kinder des existiierenden root-Elements angehängt.
+
 Wenn die erste Information innerhalb der Excel-Datei **fett** formatiert ist, wird für diese Zeile auch ein Vorgang erstellt und nach zugehörigen Bildern gesucht. Diese Bilder werden innerhalb eines konfigurierten Ordners in Unterordnern erwartet, die nach der Inventarnummer benannt sind. Diese können entweder flach in einer Ordnerliste organisiert sein oder der gleichen hierarchischen Struktur folgen wie die Tektonik.
 
 Wird ein Ordner gefunden, werden alle darin enthaltenen Dateien aufgelistet und nach folgenden Regeln geprüft:

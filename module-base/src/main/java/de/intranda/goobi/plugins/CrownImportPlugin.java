@@ -439,9 +439,10 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                             totalHierarchy = e.getHierarchy();
                             continue;
                         }
+                    } else {
+                        // root element
+                        createEadMetadata(lastElement, firstColumnValue, secondColumnValue, createProcess, map, headerOrder);
                     }
-                    // root element
-                    createEadMetadata(lastElement, firstColumnValue, secondColumnValue, createProcess, map, headerOrder);
                 } else {
                     IEadEntry parentNode = null;
 
