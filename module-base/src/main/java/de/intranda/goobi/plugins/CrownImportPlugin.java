@@ -8,6 +8,8 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -21,6 +23,7 @@ import org.apache.commons.configuration.SubnodeConfiguration;
 import org.apache.commons.configuration.XMLConfiguration;
 import org.apache.commons.configuration.reloading.FileChangedReloadingStrategy;
 import org.apache.commons.configuration.tree.xpath.XPathExpressionEngine;
+import org.apache.commons.dbutils.QueryRunner;
 import org.apache.commons.io.input.BOMInputStream;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.Cell;
@@ -56,6 +59,7 @@ import de.sub.goobi.helper.ProcessTitleGenerator;
 import de.sub.goobi.helper.StorageProvider;
 import de.sub.goobi.helper.enums.ManipulationType;
 import de.sub.goobi.helper.exceptions.ImportPluginException;
+import de.sub.goobi.persistence.managers.MySQLHelper;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
@@ -282,6 +286,8 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
         }
         readConfig();
 
+        boolean archiveExists = false;
+
         // open archive plugin, load ead file or create new one
         if (archivePlugin == null) {
             // find out if archive file is locked currently
@@ -289,7 +295,15 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             archivePlugin = (IArchiveManagementAdministrationPlugin) ia;
 
             archivePlugin.setDatabaseName(eadFileName);
-            archivePlugin.createNewDatabase();
+
+            List<String> lst = archivePlugin.getPossibleDatabases();
+            if (lst.contains(eadFileName)) {
+                archivePlugin.loadSelectedDatabase();
+                archiveExists = true;
+            } else {
+                archivePlugin.setDatabaseName(eadFileName);
+                archivePlugin.createNewDatabase();
+            }
             rootEntry = archivePlugin.getRootElement();
         }
 
@@ -352,6 +366,8 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                     identifierOrder = headerOrder.get(col.getExcelColumnName());
                 }
             }
+
+            int totalHierarchy = 0;
             // read all lines
             while (rowIterator.hasNext()) {
                 Row row = rowIterator.next();
@@ -414,23 +430,32 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                     rec.setObject(list);
                     recordList.add(rec);
                 }
-
                 if (hierarchy == 0) {
-                    // root element
-                    createEadMetadata(lastElement, firstColumnValue, secondColumnValue, createProcess, map, headerOrder);
+                    if (archiveExists) {
+                        IEadEntry e = findElement(identifierValue == null ? firstColumnValue : identifierValue);
+                        if (e != null) {
+                            archivePlugin.setSelectedEntry(e);
+                            lastElement = e;
+                            totalHierarchy = e.getHierarchy();
+                            continue;
+                        }
+                    } else {
+                        // root element
+                        createEadMetadata(lastElement, firstColumnValue, secondColumnValue, createProcess, map, headerOrder);
+                    }
                 } else {
                     IEadEntry parentNode = null;
 
                     // if current hierarchy is > lastElement hierarchy -> current is sub element of last element
-                    if (hierarchy > lastElement.getHierarchy().intValue()) {
+                    if (hierarchy + totalHierarchy > lastElement.getHierarchy().intValue()) {
                         parentNode = lastElement;
-                    } else if (hierarchy == lastElement.getHierarchy().intValue()) {
+                    } else if (hierarchy + totalHierarchy == lastElement.getHierarchy().intValue()) {
                         // if current hierarchy == lastElement hierarchy -> current is sibling of last element, get parent element
                         parentNode = lastElement.getParentNode();
                     } else {
                         // else run recursive through all parents of last element until the direct parent is found
                         parentNode = lastElement.getParentNode();
-                        while (hierarchy <= parentNode.getHierarchy().intValue()) {
+                        while (hierarchy + totalHierarchy <= parentNode.getHierarchy().intValue()) {
                             parentNode = parentNode.getParentNode();
                         }
                     }
@@ -473,6 +498,24 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
 
         // return the list of all generated records
         return recordList;
+    }
+
+    private IEadEntry findElement(String identifier) {
+        String sql = "select id from archive_record_node WHERE archive_record_group_id = ? AND  uuid = ? ";
+        try (Connection connection = MySQLHelper.getInstance().getConnection()) {
+            QueryRunner run = new QueryRunner();
+            Integer searchResult =
+                    run.query(connection, sql.toString(), MySQLHelper.resultSetToIntegerHandler, archivePlugin.getRecordGroup().getId(), identifier);
+            for (IEadEntry entry : rootEntry.getAllNodes()) {
+                if (entry.getDatabaseId().equals(searchResult)) {
+                    return entry;
+                }
+            }
+        } catch (SQLException e) {
+            log.error(e);
+        }
+
+        return null;
     }
 
     private void createEadMetadata(IEadEntry entry, String firstValue, String secondValue, boolean createProcess, Map<Integer, String> data,

@@ -65,6 +65,8 @@ Next, the content of the cells is read. Both the hierarchically indented cells a
 
 Which content is imported for which EAD or metadata field is defined in the corresponding configuration file.
 
+If the inventory to be imported already exists, the row with the root element is checked. If the ID of the root node from the Excel file has already been assigned to a node in the inventory, this node is used as the top root in the import and the hierarchy of the Excel file is then relative to this node. If the ID does not yet exist, all other elements are appended as children of the existing root element.
+
 If the first piece of information within the Excel file is formatted **bold**, a process is also created for this row and a search is carried out for associated images. These images are expected within a configured folder in subfolders named after the inventory number. These can either be organised flat in a folder list or follow the same hierarchical structure as the tectonics.
 
 If a folder is found, all the files it contains are listed and checked according to the following rules:
