@@ -3,6 +3,10 @@ title: Archive data import
 identifier: intranda_import_crown
 published: true
 description: This is a technical documentation for the import plugin of archive data from a hierarchically organised Excel file.
+keywords:
+    - Goobi workflow
+    - Plugin
+    - Import Plugin
 ---
 ## Introduction
 This documentation describes the installation, configuration and use of the import plugin for archive data from a hierarchically organised Excel file.

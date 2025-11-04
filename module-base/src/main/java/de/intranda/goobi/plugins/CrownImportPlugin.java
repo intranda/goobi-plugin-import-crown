@@ -406,6 +406,11 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                     }
                 }
 
+                // skip empty rows
+                if (StringUtils.isBlank(firstColumnValue)) {
+                    continue;
+                }
+
                 // get other columns
                 for (int cn = 0; cn < lastColumn; cn++) {
                     String cellValue = getCellValue(row, cn);

@@ -3,6 +3,10 @@ title: Archiv-Daten-Import
 identifier: intranda_import_crown
 published: true
 description: Dies ist eine technische Dokumentation für das Import Plugin von Archiv-Daten aus einer hierarchisch organisierten Exceldatei.
+keywords:
+    - Goobi workflow
+    - Plugin
+    - Import Plugin
 ---
 ## Einführung
 Die vorliegende Dokumentation beschreibt die Installation, Konfiguration und den Einsatz des Importplugins für Archiv-Daten aus einer hierarchisch organisierten Exceldatei.
