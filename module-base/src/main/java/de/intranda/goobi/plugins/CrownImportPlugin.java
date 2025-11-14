@@ -29,7 +29,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.CellValue;
 import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.FormulaEvaluator;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Row.MissingCellPolicy;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -348,7 +350,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                 for (int i = 0; i < numberOfCells; i++) {
                     Cell cell = headerRow.getCell(i);
                     if (cell != null) {
-                        String value = getCellValue(headerRow, i);
+                        String value = getCellValue(headerRow, i, wb);
                         headerOrder.put(value, i);
                     }
                 }
@@ -413,7 +415,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
 
                 // get other columns
                 for (int cn = 0; cn < lastColumn; cn++) {
-                    String cellValue = getCellValue(row, cn);
+                    String cellValue = getCellValue(row, cn, wb);
                     if (identifierOrder != null && cn == identifierOrder.intValue()) {
                         identifierValue = cellValue;
                     }
@@ -1459,22 +1461,41 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                         || filename.endsWith(".png") || filename.endsWith(".wmv"));
     };
 
-    public String getCellValue(Row row, int columnIndex) {
+    public String getCellValue(Row row, int columnIndex, Workbook wb) {
         Cell cell = row.getCell(columnIndex, MissingCellPolicy.CREATE_NULL_AS_BLANK);
         String value = "";
         switch (cell.getCellType()) {
             case BOOLEAN:
                 value = cell.getBooleanCellValue() ? "true" : "false";
                 break;
-            case FORMULA:
-                value = cell.getRichStringCellValue().getString();
-                break;
+
             case NUMERIC:
                 value = String.valueOf((long) cell.getNumericCellValue());
                 break;
             case STRING:
                 value = cell.getStringCellValue();
                 break;
+            case FORMULA:
+                FormulaEvaluator evaluator = wb.getCreationHelper().createFormulaEvaluator();
+
+                CellValue cellValue = evaluator.evaluate(cell);
+                switch (cellValue.getCellType()) {
+                    case CellType.BOOLEAN:
+                        value = cellValue.getBooleanValue() ? "true" : "false";
+                        break;
+                    case CellType.NUMERIC:
+                        value = String.valueOf((long) cellValue.getNumberValue());
+                        break;
+                    case CellType.STRING:
+                        value = cellValue.getStringValue();
+                        break;
+                    default:
+                        // none, error, blank
+                        value = "";
+                        break;
+                }
+                break;
+
             default:
                 // none, error, blank
                 value = "";
