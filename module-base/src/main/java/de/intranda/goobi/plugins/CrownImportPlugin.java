@@ -150,6 +150,8 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
 
     private transient List<String> titleParts = new ArrayList<>();
 
+    private boolean importAllFiles = false;
+
     /**
      * define what kind of import plugin this is
      */
@@ -176,6 +178,8 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
         if (myconfig != null) {
             runAsGoobiScript = myconfig.getBoolean("/runAsGoobiScript", false);
             imageRootFolder = myconfig.getString("/images");
+
+            importAllFiles = myconfig.getBoolean("/images/@importAllFiles", false);
 
             eadFileName = myconfig.getString("/basex/filename");
 
@@ -1047,7 +1051,11 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             Path currentImageFolder = allImageFolder.get(rec.getId());
             List<Path> filesToImport = null;
             if (currentImageFolder != null) {
-                filesToImport = StorageProvider.getInstance().listFiles(currentImageFolder.toString(), fileFilter);
+                if (importAllFiles) {
+                    filesToImport = StorageProvider.getInstance().listFiles(currentImageFolder.toString());
+                } else {
+                    filesToImport = StorageProvider.getInstance().listFiles(currentImageFolder.toString(), fileFilter);
+                }
             }
 
             String metsFileName = getImportFolder() + File.separator + identifier + ".xml";
@@ -1306,50 +1314,57 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                 try {
                     StorageProvider.getInstance().createDirectories(imageBasePath);
 
-                    for (Path fileToCopy : filesToImport) {
-                        String filename = fileToCopy.getFileName().toString();
-                        boolean containsEdited = false;
-                        boolean betterFileExists = false;
-                        if (filename.contains("bearbeitet")) {
-                            containsEdited = true;
+                    if (importAllFiles) {
+                        for (Path fileToCopy : filesToImport) {
+                            StorageProvider.getInstance()
+                                    .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
                         }
-
-                        // check if edited version exists
-                        if (!containsEdited && (filename.endsWith(".jpg") || filename.endsWith(".tif"))) {
-                            String editFileName = filename.replace(".jpg", "").replace(".tif", "") + "_bearbeitet.tif";
-                            for (Path fileToCheck : filesToImport) {
-                                String filenameToCheck = fileToCheck.getFileName().toString();
-                                if (editFileName.equals(filenameToCheck)) {
-                                    // if this is the case, use the tif instead and skip this jpg
-                                    betterFileExists = true;
-                                    break;
-                                }
-                            }
-                        }
-
-                        if (filename.endsWith(".jpg")) {
-                            // in case of jpg check if a tif with the same name exists
-                            String tifFilename = filename.replace(".jpg", ".tif");
-
-                            for (Path fileToCheck : filesToImport) {
-                                String filenameToCheck = fileToCheck.getFileName().toString();
-                                if (tifFilename.equals(filenameToCheck)) {
-                                    // if this is the case, use the tif instead and skip this jpg
-                                    betterFileExists = true;
-                                    break;
-                                }
-                                // else check if a file starting with the same name exists containing "_bearbeitet"
+                    } else {
+                        for (Path fileToCopy : filesToImport) {
+                            String filename = fileToCopy.getFileName().toString();
+                            boolean containsEdited = false;
+                            boolean betterFileExists = false;
+                            if (filename.contains("bearbeitet")) {
+                                containsEdited = true;
                             }
 
-                            // otherwise copy the jpg
-                            if (!betterFileExists) {
+                            // check if edited version exists
+                            if (!containsEdited && (filename.endsWith(".jpg") || filename.endsWith(".tif"))) {
+                                String editFileName = filename.replace(".jpg", "").replace(".tif", "") + "_bearbeitet.tif";
+                                for (Path fileToCheck : filesToImport) {
+                                    String filenameToCheck = fileToCheck.getFileName().toString();
+                                    if (editFileName.equals(filenameToCheck)) {
+                                        // if this is the case, use the tif instead and skip this jpg
+                                        betterFileExists = true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (filename.endsWith(".jpg")) {
+                                // in case of jpg check if a tif with the same name exists
+                                String tifFilename = filename.replace(".jpg", ".tif");
+
+                                for (Path fileToCheck : filesToImport) {
+                                    String filenameToCheck = fileToCheck.getFileName().toString();
+                                    if (tifFilename.equals(filenameToCheck)) {
+                                        // if this is the case, use the tif instead and skip this jpg
+                                        betterFileExists = true;
+                                        break;
+                                    }
+                                    // else check if a file starting with the same name exists containing "_bearbeitet"
+                                }
+
+                                // otherwise copy the jpg
+                                if (!betterFileExists) {
+                                    StorageProvider.getInstance()
+                                            .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
+                                }
+                            } else {
+                                // always copy other file formats
                                 StorageProvider.getInstance()
                                         .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
                             }
-                        } else {
-                            // always copy other file formats
-                            StorageProvider.getInstance()
-                                    .copyFile(fileToCopy, Paths.get(imageBasePath.toString(), fileToCopy.getFileName().toString()));
                         }
                     }
                 } catch (IOException e) {
