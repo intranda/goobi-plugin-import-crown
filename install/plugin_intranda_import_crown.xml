@@ -122,7 +122,7 @@
 
         <!-- image folder name. Sub folder are organized by the identifier metadata -->
         <!-- image import is skipped, if folder does not exist or is empty -->
-        <images>/opt/digiverso/import/crown/</images>
+        <images importAllFiles="false">/opt/digiverso/import/crown/</images>
 
     </config>
 </config_plugin>
