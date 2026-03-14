@@ -110,7 +110,7 @@ The configuration is done in the file `plugin_intranda_import_crown.xml`:
             <!-- column header for the node type, leave it empty when a fixed type should be used (file for nodes with processes, folder for all other)  -->
             <nodetype></nodetype>
             
-            <!-- process title metatada -->
+            <!-- process title metadata -->
             <!-- can be generated from other fields like "CatalogIDDigital + '_' + ContentDescription" , or use 'first' and 'second' to get the hierarchical information-->
             <title>first</title>
 

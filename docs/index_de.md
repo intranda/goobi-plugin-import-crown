@@ -69,7 +69,7 @@ Als nächstes wird der Inhalt der Zellen gelesen. Dabei werden sowohl die hierar
 
 Welcher Inhalt zu welchem EAD- oder Metadatenfeld importiert wird, wird in der dazugehörigen Konfigurationsdatei festgelegt.
 
-Wenn der zu importierende Bestand schon existiert, wird die Zeile mit dem root-Element geprüft. Falls die ID des root-Knotens aus der Exceldatei bereits in einem Knoten im Bestand vergeben wurde, wird dieser Knoten als oberster Knoten im Import genutzt und die Hierarchie der Exceldatei ist dann relativ zu diesem Knoten. Existiert die ID noch nicht, werden alle weiteren Elemente als Kinder des existiierenden root-Elements angehängt.
+Wenn der zu importierende Bestand schon existiert, wird die Zeile mit dem root-Element geprüft. Falls die ID des root-Knotens aus der Exceldatei bereits in einem Knoten im Bestand vergeben wurde, wird dieser Knoten als oberster Knoten im Import genutzt und die Hierarchie der Exceldatei ist dann relativ zu diesem Knoten. Existiert die ID noch nicht, werden alle weiteren Elemente als Kinder des existierenden root-Elements angehängt.
 
 Wenn die erste Information innerhalb der Excel-Datei **fett** formatiert ist, wird für diese Zeile auch ein Vorgang erstellt und nach zugehörigen Bildern gesucht. Diese Bilder werden innerhalb eines konfigurierten Ordners in Unterordnern erwartet, die nach der Inventarnummer benannt sind. Diese können entweder flach in einer Ordnerliste organisiert sein oder der gleichen hierarchischen Struktur folgen wie die Tektonik.
 
@@ -77,7 +77,7 @@ Wird ein Ordner gefunden, werden alle darin enthaltenen Dateien aufgelistet und 
 
 1. ignoriere alle Daten, die kein `tif`, `jpg` oder ´wmv` sind
 2. ignoriere alle Dateien, die das Wort `komprimiert`´` enthalten
-3. wenn eine Datei ohne den suffix `_bearbeitet` gefunden wurde, prüfe, ob es eine Datei mit dem gleichen Namen und dem suffix `_bearbeitet` gibt. Falls ja, ignoriere die aktuelle Datei un nutze die Version mit `_bearbeitet`
+3. wenn eine Datei ohne den suffix `_bearbeitet` gefunden wurde, prüfe, ob es eine Datei mit dem gleichen Namen und dem suffix `_bearbeitet` gibt. Falls ja, ignoriere die aktuelle Datei und nutze die Version mit `_bearbeitet`
 4. wenn eine `jpg`-Datei gefunden wurde, prüfe, ob es ein `tif` mit dem gleichen Namen gibt, falls ja, ignoriere die `jpg`-Datei und nutze das `tif`
 
 
@@ -193,7 +193,7 @@ Die Konfiguration erfolgt in der Datei `plugin_intranda_import_crown.xml`:
 
 Im Feld `<template>` wird definiert, für welche Produktionsvorlage die vorliegende Konfiguration angewendet werden soll. Da das `<config>`-Element wiederholbar ist, sind unterschiedliche Konfigurationen für verschiedene Produktionsvorlagen möglich. So kann es zum Beispiel für die Reichskrone eine andere Konfiguration geben als für den Reichsapfel.
 
-Das Feld `<runAsGoobiScript>` steuert, ob der Import direkt in der Nutzersession oder im Hintergrund als GoobiScript ausgeführt wird. Bei größeren Exceldateien empfielt sich die Nutzung von GoobiScript.
+Das Feld `<runAsGoobiScript>` steuert, ob der Import direkt in der Nutzersession oder im Hintergrund als GoobiScript ausgeführt wird. Bei größeren Exceldateien empfiehlt sich die Nutzung von GoobiScript.
 
 `<startRow>` legt fest, welche Zeile die erste Datenzeile der Exceldatei ist. Damit können oberhalb weitere Informationen wie Header, Beschreibungen oder Hilfetexte angegeben werden, die dann vom Import ignoriert werden.
 
@@ -205,16 +205,16 @@ Das Mapping der Metadaten passiert innerhalb des `<metadata>` Blocks. Hier wird 
 
 Anschließend kann der zu verwendende Knotentyp definiert werden, falls dieser als Excelspalte vorhanden ist. Dies passiert in `<nodetype>`. Wenn dies nicht der Fall ist, kann das Feld leer gelassen werden. Dann wird für alle Knoten, für die ein Vorgang erstellt wurde, `file` genutzt, alle anderen Knoten bekommen den Typ `folder`. 
 
-In `<title>` wird die Generierung der Vorgangstitel konfiguiert. Hier gelten die selben Regeln wie in der normalen Anlegemaske. Zusätzlich stehen die beiden Schlüsselworte `first` und `second` zur Verfügung, um auf den Inhalt der beiden hierarchischen Felder zugreifen zu können.
+In `<title>` wird die Generierung der Vorgangstitel konfiguriert. Hier gelten die selben Regeln wie in der normalen Anlegemaske. Zusätzlich stehen die beiden Schlüsselworte `first` und `second` zur Verfügung, um auf den Inhalt der beiden hierarchischen Felder zugreifen zu können.
 
 Anschließend erfolgt die Konfiguration des Metadatenmappings zu EAD und METS/MODS. In `<firstField>` wird das erste hierarchische Feld definiert, `<secondField>` enthält optional den Inhalt des zweiten Feldes. Wenn nur mit einem Feld gearbeitet wird, kann es mittels `enabled="false"` deaktiviert werden. Zusätzliche, fest definierte Spalten lassen sich mittels `<additionalField>` konfigurieren. Hier muss im Attribut `column` angegeben werden, wie die Überschrift der Spalte lautet. Die anderen Konfigurationsoptionen sind identisch zu den anderen beiden. Das Feld `metadataField` definiert das zu verwendende Metadatum innerhalb der METS/MODS Datei. In `eadField` wird das entsprechende Feld im EAD-Knoten definiert und `level` gibt an, in welchem Bereich sich das Metadatum befindet. In `authorityColumn` kann optional eine Spalte definiert werden, in der Normdaten zu dem Feld enthalten sind. Diese Normdaten werden dann nicht als eigenständige Felder importiert, sondern gehören zum aktuellen Metadatum. Hier sind nach Möglichkeit vollständige URI zu verwenden und nicht nur Nummern.
 
 Zusätzlich muss ein Feld als `identifier="true"` markiert werden. Der Inhalt dieses Feldes muss für jede Zeile innerhalb des Dokuments eindeutig sein und wird für die `id` der EAD-Knoten und das Metadatum `NodeId` verwendet. Es dient zur Verknüpfung zwischen EAD-Knoten und Goobi-Vorgang.
 
-Es gibt mehrere Wege, um Personen oder Körperschaften zu importieren. Namen können entweder in einer Spalte stehen und werden beim Import in die verschiedenen Namensteile aufgesplitted oder es kann pro Namensteil eine Spalte genutzt werden. Die zu nutztende Rolle kann entweder fest konfiguriert werden oder in einer eigenen Spalte definiert werden. Dabei kann können für METS und EAD unterschiedliche Angaben gemacht werden.
+Es gibt mehrere Wege, um Personen oder Körperschaften zu importieren. Namen können entweder in einer Spalte stehen und werden beim Import in die verschiedenen Namensteile aufgesplitted oder es kann pro Namensteil eine Spalte genutzt werden. Die zu nutzende Rolle kann entweder fest konfiguriert werden oder in einer eigenen Spalte definiert werden. Dabei können für METS und EAD unterschiedliche Angaben gemacht werden.
 
 Die Angaben werden innerhalb von `<personField>` beziehungsweise `<corporateField>` definiert. Wie bei den anderen Feldern auch können die Attribute `metadataField`, `eadField`, `level` und `authorityColumn` verwendet werden. Die beiden Attribute `metadataField`, `eadField` können entweder eine feste Rolle enthalten oder einen Spaltennamen. Innerhalb des Feldes gibt es das Unterelement `<nameColumn>`, in dem der Spaltenname definiert wurde. Hier kann mittels `splitName="true/false"` angegeben werden, ob der Inhalt der Spalte aufgeteilt werden soll oder ob zusätzliche Felder für andere Namensteile existieren. Wenn der Inhalt aufgeteilt werden soll, kann mittels `splitChar=","` das Zeichen definiert werden, an dem die Trennung erfolgen soll. In `firstNameIsFirstPart="true/false"` kann bei Personen festgelegt werden, ob die Angabe in der Spalte in der Form Vorname Nachname oder Nachname Vorname erfolgt.
-Wenn keine Aufsplittung erfolgen soll, dann enhält das Feld den Hauptnamen/Nachnamen und Spalten mit weiteren Namensteilen können in `<firstnameColumn>`, bwziehungsweise `<subNameColumn>` und `<partNameColumn>` konfiguriert werden.
+Wenn keine Aufsplittung erfolgen soll, dann enthält das Feld den Hauptnamen/Nachnamen und Spalten mit weiteren Namensteilen können in `<firstnameColumn>`, beziehungsweise `<subNameColumn>` und `<partNameColumn>` konfiguriert werden.
 
-Gruppierte Daten lassen sich mit Hilfe des `<group>` Elements ebenfalls importieren. Die Attrbiute  `metadataField` und `eadField` enthalten den Namen der Gruppe im Regelsatz und Archivmanagent und in den `<field>` Angaben werden die einzelnen Metadaten der Gruppe definiert. Hier können die gleichen Angaben konfiguriert werden, wie bei `<additionalField>`. 
+Gruppierte Daten lassen sich mit Hilfe des `<group>` Elements ebenfalls importieren. Die Attribute  `metadataField` und `eadField` enthalten den Namen der Gruppe im Regelsatz und Archivmanagement und in den `<field>` Angaben werden die einzelnen Metadaten der Gruppe definiert. Hier können die gleichen Angaben konfiguriert werden, wie bei `<additionalField>`. 
 
