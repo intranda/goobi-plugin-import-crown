@@ -22,7 +22,7 @@ To be able to use the plugin, the following files must be installed:
 /opt/digiverso/goobi/config/plugin_intranda_import_crown.xml
 ```
 
-In addition, the XML database `BaseX` must be running in the background and set up correctly. The installation is described in detail [here](https://docs.goobi.io/goobi-workflow-plugins-en/administration/intranda_administration_archive_management/installation_for_productive_use).
+In addition, the XML database `BaseX` must be running in the background and set up correctly. The installation is described in detail [here](https://docs.goobi.io/en/workflow/plugins/administration/goobi-plugin-administration-archive-management/usage).
 
 
 ## Overview and functionality
