@@ -196,7 +196,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             firstColumn.setEadName(firstFieldDefinition.getString("@eadField"));
             firstColumn.setLevel(firstFieldDefinition.getInt("@level", 0));
             firstColumn.setIdentifierField(firstFieldDefinition.getBoolean("@identifier", false));
-            firstColumn.setAuthorityColumnName(firstFieldDefinition.getString("@authorityDataColumn"));
+            firstColumn.setAuthorityColumnName(firstFieldDefinition.getString("@authorityColumn"));
 
             SubnodeConfiguration secondFieldDefinition = myconfig.configurationAt("/metadata/secondField");
             if (secondFieldDefinition.getBoolean("@enabled")) {
@@ -205,7 +205,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                 secondColumn.setEadName(secondFieldDefinition.getString("@eadField"));
                 secondColumn.setLevel(secondFieldDefinition.getInt("@level", 0));
                 secondColumn.setIdentifierField(secondFieldDefinition.getBoolean("@identifier", false));
-                secondColumn.setAuthorityColumnName(secondFieldDefinition.getString("@authorityDataColumn"));
+                secondColumn.setAuthorityColumnName(secondFieldDefinition.getString("@authorityColumn"));
             }
 
             columnList.clear();
@@ -278,7 +278,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
         mc.setLevel(field.getInt("@level", 0));
         mc.setIdentifierField(field.getBoolean("@identifier", false));
         mc.setExcelColumnName(field.getString("@column"));
-        mc.setAuthorityColumnName(field.getString("@authorityDataColumn"));
+        mc.setAuthorityColumnName(field.getString("@authorityColumn"));
         return mc;
     }
 
@@ -985,6 +985,8 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
         IFieldValue value = field.createFieldValue();
         value.setValue(stringValue);
         if (StringUtils.isNotBlank(authorityData)) {
+            value.setAuthorityType(field.getFieldType());
+
             value.setAuthorityValue(authorityData);
         }
         List<IFieldValue> existingValues = field.getValues();
