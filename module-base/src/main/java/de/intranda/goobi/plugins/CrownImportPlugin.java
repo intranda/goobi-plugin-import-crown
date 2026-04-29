@@ -1091,6 +1091,10 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                 if (StringUtils.isNotBlank(firstColumn.getAuthorityColumnName())) {
                     authorityData = data.get(headerMap.get(firstColumn.getAuthorityColumnName()));
                 }
+
+                if (StringUtils.isNotBlank(authorityData)) {
+                    idMetadata.setAuthorityFile("-", "-", authorityData);
+                }
                 idMetadata.setAuthorityValue(authorityData);
                 logical.addMetadata(idMetadata);
             } catch (MetadataTypeNotAllowedException | DocStructHasNoTypeException e) {
@@ -1106,6 +1110,10 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                     Metadata desc = new Metadata(prefs.getMetadataTypeByName(secondColumn.getRulesetName()));
                     desc.setAuthorityValue(authorityData);
                     desc.setValue(secondCol);
+                    if (StringUtils.isNotBlank(authorityData)) {
+                        desc.setAuthorityFile("-", "-", authorityData);
+                    }
+
                     logical.addMetadata(desc);
                 } catch (MetadataTypeNotAllowedException | DocStructHasNoTypeException e) {
                     log.error(e);
@@ -1123,7 +1131,9 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                         }
                         try {
                             Metadata meta = new Metadata(prefs.getMetadataTypeByName(col.getRulesetName()));
-                            meta.setAuthorityValue(authorityData);
+                            if (StringUtils.isNotBlank(authorityData)) {
+                                meta.setAuthorityFile("-", "-", authorityData);
+                            }
                             meta.setValue(value);
                             logical.addMetadata(meta);
                         } catch (MetadataTypeNotAllowedException | DocStructHasNoTypeException e) {
@@ -1240,6 +1250,9 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                                             Metadata meta = new Metadata(prefs.getMetadataTypeByName(col.getRulesetName()));
                                             meta.setAuthorityValue(authorityData);
                                             meta.setValue(value);
+                                            if (StringUtils.isNotBlank(authorityData)) {
+                                                meta.setAuthorityFile("-", "-", authorityData);
+                                            }
                                             group.addMetadata(meta);
                                         } catch (MetadataTypeNotAllowedException | DocStructHasNoTypeException e) {
                                             log.error(e);
