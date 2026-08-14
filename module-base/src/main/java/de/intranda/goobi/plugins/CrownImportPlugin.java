@@ -662,6 +662,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                 for (IMetadataField field : entry.getIdentityStatementAreaList()) {
                     if (field.getName().equals(gmo.getEadName())) {
                         addGroupMetadata(data, headerMap, gmo, field);
+                        return;
                     }
 
                 }
@@ -669,7 +670,8 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             case 2:
                 for (IMetadataField field : entry.getContextAreaList()) {
                     if (field.getName().equals(gmo.getEadName())) {
-
+                        addGroupMetadata(data, headerMap, gmo, field);
+                        return;
                     }
                 }
                 break;
@@ -677,7 +679,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             case 3:
                 for (IMetadataField field : entry.getContentAndStructureAreaAreaList()) {
                     if (field.getName().equals(gmo.getEadName())) {
-
+                        addGroupMetadata(data, headerMap, gmo, field);
                         return;
                     }
                 }
@@ -685,7 +687,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             case 4:
                 for (IMetadataField field : entry.getAccessAndUseAreaList()) {
                     if (field.getName().equals(gmo.getEadName())) {
-
+                        addGroupMetadata(data, headerMap, gmo, field);
                         return;
                     }
                 }
@@ -693,7 +695,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             case 5:
                 for (IMetadataField field : entry.getAlliedMaterialsAreaList()) {
                     if (field.getName().equals(gmo.getEadName())) {
-
+                        addGroupMetadata(data, headerMap, gmo, field);
                         return;
                     }
                 }
@@ -702,7 +704,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             case 6:
                 for (IMetadataField field : entry.getNotesAreaList()) {
                     if (field.getName().equals(gmo.getEadName())) {
-
+                        addGroupMetadata(data, headerMap, gmo, field);
                         return;
                     }
                 }
@@ -710,7 +712,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             case 7:
                 for (IMetadataField field : entry.getDescriptionControlAreaList()) {
                     if (field.getName().equals(gmo.getEadName())) {
-
+                        addGroupMetadata(data, headerMap, gmo, field);
                         return;
                     }
                 }
@@ -722,27 +724,46 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
     }
 
     public void addGroupMetadata(Map<Integer, String> data, Map<String, Integer> headerMap, GroupColumns gmo, IMetadataField field) {
+        // find all columns with content
+        List<MetadataColumn> filledColumns = new ArrayList<>();
+        for (MetadataColumn col : gmo.getMetadataList()) {
+            if (StringUtils.isNotBlank(col.getEadName()) && StringUtils.isNotBlank(data.get(headerMap.get(col.getExcelColumnName())))
+                    && hasSubfield(field, col.getEadName())) {
+                filledColumns.add(col);
+            }
+        }
+        // don't create an empty group
+        if (filledColumns.isEmpty()) {
+            return;
+        }
+
         IMetadataGroup grp = field.createGroup();
         // find metadata field
-        for (MetadataColumn col : gmo.getMetadataList()) {
-            if (StringUtils.isNotBlank(col.getEadName())) {
-                // get value, check for authority data
-                String metadataValue = data.get(headerMap.get(col.getExcelColumnName()));
-                String authorityData = null;
-                if (StringUtils.isNotBlank(col.getAuthorityColumnName())) {
-                    authorityData = data.get(headerMap.get(col.getAuthorityColumnName()));
-                }
-                // add field, if value is not empty
-                if (StringUtils.isNotBlank(metadataValue)) {
-                    for (IMetadataField subfield : grp.getFields()) {
-                        if (subfield.getName().equals(col.getEadName())) {
-                            createMetadataField(metadataValue, authorityData, subfield);
-                        }
-                    }
+        for (MetadataColumn col : filledColumns) {
+            // get value, check for authority data
+            String metadataValue = data.get(headerMap.get(col.getExcelColumnName()));
+            String authorityData = null;
+            if (StringUtils.isNotBlank(col.getAuthorityColumnName())) {
+                authorityData = data.get(headerMap.get(col.getAuthorityColumnName()));
+            }
+            for (IMetadataField subfield : grp.getFields()) {
+                if (subfield.getName().equals(col.getEadName())) {
+                    createMetadataField(metadataValue, authorityData, subfield);
                 }
             }
-
         }
+    }
+
+    private boolean hasSubfield(IMetadataField field, String name) {
+        if (field.getSubfields() == null) {
+            return false;
+        }
+        for (IMetadataField subfield : field.getSubfields()) {
+            if (name.equals(subfield.getName())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void addCorporateToNode(IEadEntry entry, int level, String role, String mainName, String subName, String partName, String authorityData) {
