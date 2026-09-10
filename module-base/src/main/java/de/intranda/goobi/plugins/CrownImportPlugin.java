@@ -197,6 +197,8 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             firstColumn.setLevel(firstFieldDefinition.getInt("@level", 0));
             firstColumn.setIdentifierField(firstFieldDefinition.getBoolean("@identifier", false));
             firstColumn.setAuthorityColumnName(firstFieldDefinition.getString("@authorityColumn"));
+            firstColumn.setAuthorityType(firstFieldDefinition.getString("@authorityType"));
+            firstColumn.setAuthorityTypeColumnName(firstFieldDefinition.getString("@authorityTypeColumn"));
 
             SubnodeConfiguration secondFieldDefinition = myconfig.configurationAt("/metadata/secondField");
             if (secondFieldDefinition.getBoolean("@enabled")) {
@@ -206,6 +208,8 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                 secondColumn.setLevel(secondFieldDefinition.getInt("@level", 0));
                 secondColumn.setIdentifierField(secondFieldDefinition.getBoolean("@identifier", false));
                 secondColumn.setAuthorityColumnName(secondFieldDefinition.getString("@authorityColumn"));
+                secondColumn.setAuthorityType(secondFieldDefinition.getString("@authorityType"));
+                secondColumn.setAuthorityTypeColumnName(secondFieldDefinition.getString("@authorityTypeColumn"));
             }
 
             columnList.clear();
@@ -221,6 +225,8 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                 pc.setRulesetName(field.getString("@metadataField"));
                 pc.setEadName(field.getString("@eadField"));
                 pc.setAuthorityColumnName(field.getString("@authorityColumn"));
+                pc.setAuthorityType(field.getString("@authorityType"));
+                pc.setAuthorityTypeColumnName(field.getString("@authorityTypeColumn"));
                 pc.setLevel(field.getInt("@level", 0));
                 pc.setNameColumnName(field.getString("/nameColumn"));
                 pc.setSplitName(field.getBoolean("/nameColumn/@splitName", false));
@@ -236,6 +242,8 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                 cc.setRulesetName(field.getString("@metadataField"));
                 cc.setEadName(field.getString("@eadField"));
                 cc.setAuthorityColumnName(field.getString("@authorityColumn"));
+                cc.setAuthorityType(field.getString("@authorityType"));
+                cc.setAuthorityTypeColumnName(field.getString("@authorityTypeColumn"));
                 cc.setLevel(field.getInt("@level", 0));
                 cc.setNameColumnName(field.getString("/nameColumn"));
                 cc.setSplitName(field.getBoolean("/nameColumn/@splitName", false));
@@ -279,6 +287,8 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
         mc.setIdentifierField(field.getBoolean("@identifier", false));
         mc.setExcelColumnName(field.getString("@column"));
         mc.setAuthorityColumnName(field.getString("@authorityColumn"));
+        mc.setAuthorityType(field.getString("@authorityType"));
+        mc.setAuthorityTypeColumnName(field.getString("@authorityTypeColumn"));
         return mc;
     }
 
@@ -529,34 +539,70 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
         return null;
     }
 
+    /**
+     * read the authority data for a column from the current row. The name of the authority is taken from the configured type column, if it is empty or
+     * not configured, the fixed value from the configuration is used. If neither is given, the authority is detected from the value itself.
+     * 
+     * @param column column definition to use
+     * @param data content of the current row
+     * @param headerMap column headers and their position
+     * @return the authority data or null if the column is not configured or empty
+     */
+    private AuthorityData readAuthority(AuthorityColumn column, Map<Integer, String> data, Map<String, Integer> headerMap) {
+        if (StringUtils.isBlank(column.getAuthorityColumnName())) {
+            return null;
+        }
+        String type = column.getAuthorityType();
+        if (StringUtils.isNotBlank(column.getAuthorityTypeColumnName())) {
+            String typeFromColumn = data.get(headerMap.get(column.getAuthorityTypeColumnName()));
+            if (StringUtils.isNotBlank(typeFromColumn)) {
+                type = typeFromColumn;
+            }
+        }
+        return AuthorityData.resolve(data.get(headerMap.get(column.getAuthorityColumnName())), type);
+    }
+
+    /**
+     * write the authority information into a mets metadata, person or corporate. Nothing happens if no authority data was found.
+     * 
+     * @param metadata metadata to enrich
+     * @param authorityData authority data to use, may be null
+     */
+    private void setAuthorityData(Metadata metadata, AuthorityData authorityData) {
+        if (authorityData != null) {
+            metadata.setAuthorityFile(authorityData.getName(), authorityData.getUri(), authorityData.getValue());
+        }
+    }
+
+    /**
+     * write the authority information into an ead field value. Nothing happens if no authority data was found.
+     * 
+     * @param value field value to enrich
+     * @param authorityData authority data to use, may be null
+     */
+    private void setAuthorityData(IFieldValue value, AuthorityData authorityData) {
+        if (authorityData != null) {
+            value.setAuthorityType(authorityData.getName());
+            value.setAuthorityValue(authorityData.getValue());
+        }
+    }
+
     private void createEadMetadata(IEadEntry entry, String firstValue, String secondValue, boolean createProcess, Map<Integer, String> data,
             Map<String, Integer> headerMap) {
         // add identifier and label
 
         if (StringUtils.isNotBlank(firstColumn.getEadName())) {
-            String authorityData = null;
-            if (StringUtils.isNotBlank(firstColumn.getAuthorityColumnName())) {
-                authorityData = data.get(headerMap.get(firstColumn.getAuthorityColumnName()));
-            }
-            addMetadataToNode(entry, firstColumn, firstValue, authorityData);
+            addMetadataToNode(entry, firstColumn, firstValue, readAuthority(firstColumn, data, headerMap));
         }
 
         if (secondColumn != null && StringUtils.isNotBlank(secondColumn.getEadName())) {
-            String authorityData = null;
-            if (StringUtils.isNotBlank(secondColumn.getAuthorityColumnName())) {
-                authorityData = data.get(headerMap.get(secondColumn.getAuthorityColumnName()));
-            }
-            addMetadataToNode(entry, secondColumn, secondValue, authorityData);
+            addMetadataToNode(entry, secondColumn, secondValue, readAuthority(secondColumn, data, headerMap));
 
         }
 
         for (MetadataColumn col : columnList) {
             String metadataValue = data.get(headerMap.get(col.getExcelColumnName()));
-            String authorityData = null;
-            if (StringUtils.isNotBlank(col.getAuthorityColumnName())) {
-                authorityData = data.get(headerMap.get(col.getAuthorityColumnName()));
-            }
-            addMetadataToNode(entry, col, metadataValue, authorityData);
+            addMetadataToNode(entry, col, metadataValue, readAuthority(col, data, headerMap));
             if ("TitleDocMain".equals(col.getRulesetName())) {
                 entry.setLabel(metadataValue);
             }
@@ -584,10 +630,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                 firstname = data.get(headerMap.get(col.getFirstColumnName()));
                 lastname = data.get(headerMap.get(col.getNameColumnName()));
             }
-            String authorityData = null;
-            if (StringUtils.isNotBlank(col.getAuthorityColumnName())) {
-                authorityData = data.get(headerMap.get(col.getAuthorityColumnName()));
-            }
+            AuthorityData authorityData = readAuthority(col, data, headerMap);
             String role = col.getEadName();
             // column header was configured, use value from column
             if (data.containsKey(headerMap.get(role))) {
@@ -618,10 +661,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                 partName = data.get(headerMap.get(col.getPartNameColumnName()));
             }
 
-            String authorityData = null;
-            if (StringUtils.isNotBlank(col.getAuthorityColumnName())) {
-                authorityData = data.get(headerMap.get(col.getAuthorityColumnName()));
-            }
+            AuthorityData authorityData = readAuthority(col, data, headerMap);
             String role = col.getEadName();
             if (data.containsKey(headerMap.get(role))) {
                 role = data.get(headerMap.get(role));
@@ -742,10 +782,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
         for (MetadataColumn col : filledColumns) {
             // get value, check for authority data
             String metadataValue = data.get(headerMap.get(col.getExcelColumnName()));
-            String authorityData = null;
-            if (StringUtils.isNotBlank(col.getAuthorityColumnName())) {
-                authorityData = data.get(headerMap.get(col.getAuthorityColumnName()));
-            }
+            AuthorityData authorityData = readAuthority(col, data, headerMap);
             for (IMetadataField subfield : grp.getFields()) {
                 if (subfield.getName().equals(col.getEadName())) {
                     createMetadataField(metadataValue, authorityData, subfield);
@@ -766,7 +803,8 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
         return false;
     }
 
-    private void addCorporateToNode(IEadEntry entry, int level, String role, String mainName, String subName, String partName, String authorityData) {
+    private void addCorporateToNode(IEadEntry entry, int level, String role, String mainName, String subName, String partName,
+            AuthorityData authorityData) {
         if (StringUtils.isBlank(mainName)) {
             return;
         }
@@ -833,7 +871,8 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
         }
     }
 
-    private void addPersonToNode(IEadEntry entry, PersonColumn column, String role, String firstname, String lastname, String authorityData) {
+    private void addPersonToNode(IEadEntry entry, PersonColumn column, String role, String firstname, String lastname,
+            AuthorityData authorityData) {
         if (StringUtils.isBlank(firstname) && StringUtils.isBlank(lastname)) {
             return;
         }
@@ -900,15 +939,13 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
         }
     }
 
-    public void createCorporateField(String mainName, String subName, String partName, String authorityData, IMetadataField field) {
+    public void createCorporateField(String mainName, String subName, String partName, AuthorityData authorityData, IMetadataField field) {
         IFieldValue value = field.createFieldValue();
         value.setMainName(mainName);
         value.setSubName(subName);
         value.setPartName(partName);
 
-        if (StringUtils.isNotBlank(authorityData)) {
-            value.setAuthorityValue(authorityData);
-        }
+        setAuthorityData(value, authorityData);
         List<IFieldValue> existingValues = field.getValues();
         if (existingValues == null) {
             existingValues = Arrays.asList(value);
@@ -918,13 +955,11 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
         field.setValues(existingValues);
     }
 
-    public void createPersonField(String firstname, String lastname, String authorityData, IMetadataField field) {
+    public void createPersonField(String firstname, String lastname, AuthorityData authorityData, IMetadataField field) {
         IFieldValue value = field.createFieldValue();
         value.setFirstname(firstname);
         value.setLastname(lastname);
-        if (StringUtils.isNotBlank(authorityData)) {
-            value.setAuthorityValue(authorityData);
-        }
+        setAuthorityData(value, authorityData);
         List<IFieldValue> existingValues = field.getValues();
         if (existingValues == null) {
             existingValues = Arrays.asList(value);
@@ -934,7 +969,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
         field.setValues(existingValues);
     }
 
-    private void addMetadataToNode(IEadEntry entry, MetadataColumn column, String stringValue, String authorityData) {
+    private void addMetadataToNode(IEadEntry entry, MetadataColumn column, String stringValue, AuthorityData authorityData) {
         if (StringUtils.isBlank(stringValue)) {
             return;
         }
@@ -1002,14 +1037,10 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
         }
     }
 
-    public void createMetadataField(String stringValue, String authorityData, IMetadataField field) {
+    public void createMetadataField(String stringValue, AuthorityData authorityData, IMetadataField field) {
         IFieldValue value = field.createFieldValue();
         value.setValue(stringValue);
-        if (StringUtils.isNotBlank(authorityData)) {
-            value.setAuthorityType(field.getFieldType());
-
-            value.setAuthorityValue(authorityData);
-        }
+        setAuthorityData(value, authorityData);
         List<IFieldValue> existingValues = field.getValues();
         if (existingValues == null) {
             existingValues = Arrays.asList(value);
@@ -1108,15 +1139,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             try {
                 Metadata idMetadata = new Metadata(prefs.getMetadataTypeByName(firstColumn.getRulesetName()));
                 idMetadata.setValue(firstCol);
-                String authorityData = null;
-                if (StringUtils.isNotBlank(firstColumn.getAuthorityColumnName())) {
-                    authorityData = data.get(headerMap.get(firstColumn.getAuthorityColumnName()));
-                }
-
-                if (StringUtils.isNotBlank(authorityData)) {
-                    idMetadata.setAuthorityFile("-", "-", authorityData);
-                }
-                idMetadata.setAuthorityValue(authorityData);
+                setAuthorityData(idMetadata, readAuthority(firstColumn, data, headerMap));
                 logical.addMetadata(idMetadata);
             } catch (MetadataTypeNotAllowedException | DocStructHasNoTypeException e) {
                 log.error(e);
@@ -1124,17 +1147,9 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
 
             if (secondColumn != null && StringUtils.isNotBlank(secondCol)) {
                 try {
-                    String authorityData = null;
-                    if (StringUtils.isNotBlank(secondColumn.getAuthorityColumnName())) {
-                        authorityData = data.get(headerMap.get(secondColumn.getAuthorityColumnName()));
-                    }
                     Metadata desc = new Metadata(prefs.getMetadataTypeByName(secondColumn.getRulesetName()));
-                    desc.setAuthorityValue(authorityData);
                     desc.setValue(secondCol);
-                    if (StringUtils.isNotBlank(authorityData)) {
-                        desc.setAuthorityFile("-", "-", authorityData);
-                    }
-
+                    setAuthorityData(desc, readAuthority(secondColumn, data, headerMap));
                     logical.addMetadata(desc);
                 } catch (MetadataTypeNotAllowedException | DocStructHasNoTypeException e) {
                     log.error(e);
@@ -1146,16 +1161,10 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                 if (StringUtils.isNotBlank(col.getRulesetName())) {
                     String value = data.get(headerMap.get(col.getExcelColumnName()));
                     if (StringUtils.isNotBlank(value)) {
-                        String authorityData = null;
-                        if (StringUtils.isNotBlank(col.getAuthorityColumnName())) {
-                            authorityData = data.get(headerMap.get(col.getAuthorityColumnName()));
-                        }
                         try {
                             Metadata meta = new Metadata(prefs.getMetadataTypeByName(col.getRulesetName()));
-                            if (StringUtils.isNotBlank(authorityData)) {
-                                meta.setAuthorityFile("-", "-", authorityData);
-                            }
                             meta.setValue(value);
+                            setAuthorityData(meta, readAuthority(col, data, headerMap));
                             logical.addMetadata(meta);
                         } catch (MetadataTypeNotAllowedException | DocStructHasNoTypeException e) {
                             log.error(e);
@@ -1187,10 +1196,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                     lastname = data.get(headerMap.get(col.getNameColumnName()));
                 }
 
-                String authorityData = null;
-                if (StringUtils.isNotBlank(col.getAuthorityColumnName())) {
-                    authorityData = data.get(headerMap.get(col.getAuthorityColumnName()));
-                }
+                AuthorityData authorityData = readAuthority(col, data, headerMap);
                 String role = col.getRulesetName();
                 // column header was configured, use value from column
                 if (data.containsKey(headerMap.get(role))) {
@@ -1200,7 +1206,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                     Person p = new Person(prefs.getMetadataTypeByName(role));
                     p.setFirstname(firstname);
                     p.setLastname(lastname);
-                    p.setAuthorityFile("-", "-", authorityData);
+                    setAuthorityData(p, authorityData);
                     logical.addPerson(p);
                 } catch (MetadataTypeNotAllowedException | DocStructHasNoTypeException e) {
                     log.error(e);
@@ -1229,10 +1235,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                     partName = data.get(headerMap.get(col.getPartNameColumnName()));
                 }
 
-                String authorityData = null;
-                if (StringUtils.isNotBlank(col.getAuthorityColumnName())) {
-                    authorityData = data.get(headerMap.get(col.getAuthorityColumnName()));
-                }
+                AuthorityData authorityData = readAuthority(col, data, headerMap);
                 String role = col.getRulesetName();
                 if (data.containsKey(headerMap.get(role))) {
                     role = data.get(headerMap.get(role));
@@ -1244,7 +1247,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                         c.addSubName(new NamePart("subname", subName));
                     }
                     c.setPartName(partName);
-                    c.setAuthorityFile("-", "-", authorityData);
+                    setAuthorityData(c, authorityData);
                     logical.addCorporate(c);
                 } catch (MetadataTypeNotAllowedException | DocStructHasNoTypeException e) {
                     log.error(e);
@@ -1263,17 +1266,10 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                                 if (StringUtils.isNotBlank(col.getRulesetName())) {
                                     String value = data.get(headerMap.get(col.getExcelColumnName()));
                                     if (StringUtils.isNotBlank(value)) {
-                                        String authorityData = null;
-                                        if (StringUtils.isNotBlank(col.getAuthorityColumnName())) {
-                                            authorityData = data.get(headerMap.get(col.getAuthorityColumnName()));
-                                        }
                                         try {
                                             Metadata meta = new Metadata(prefs.getMetadataTypeByName(col.getRulesetName()));
-                                            meta.setAuthorityValue(authorityData);
                                             meta.setValue(value);
-                                            if (StringUtils.isNotBlank(authorityData)) {
-                                                meta.setAuthorityFile("-", "-", authorityData);
-                                            }
+                                            setAuthorityData(meta, readAuthority(col, data, headerMap));
                                             group.addMetadata(meta);
                                         } catch (MetadataTypeNotAllowedException | DocStructHasNoTypeException e) {
                                             log.error(e);

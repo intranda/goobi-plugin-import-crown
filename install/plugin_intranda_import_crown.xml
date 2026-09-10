@@ -48,6 +48,14 @@
                     * 5: Allied Materials Area
                     * 6: Note Area
                     * 7: Description Control Area 
+                - @authorityColumn: name of the excel column that contains the authority uri or identifier
+                - @authorityType: name of the authority to use, allowed values are gnd, geonames and viaf
+                - @authorityTypeColumn: name of an excel column that contains the name of the authority to use.
+                  It takes precedence over @authorityType, which is used when the column is empty or not configured.
+                  If neither is given, the authority is detected from the value itself; values that cannot be
+                  detected are treated as gnd.
+                  A complete uri of a supported authority is imported as it is, everything else is reduced to
+                  its plain identifier.
                     -->
 
             <firstField metadataField="CatalogIDDigital" eadField="Shelfmark" level="1" identifier="true" />
@@ -66,7 +74,8 @@
             <additionalField column="Note" eadField="didnote" metadataField="DidNote" level="6" />
             <additionalField column="Archival History" eadField="custodhist" metadataField="InventoryHistory" level="2" />
             <additionalField column="Date" eadField="unitdate" metadataField="PublicationYear" level="1" />
-            <additionalField column="Name of Creator" eadField="origination" metadataField="Provenience" level="2" />
+            <additionalField column="Name of Creator" eadField="origination" metadataField="Provenience" level="2"
+                authorityColumn="Authority for Name of Creator" authorityType="gnd" />
             <additionalField column="Immediate source of acquisition or transfer" eadField="acqinfo" metadataField="AquisitionInformation" level="2" />
             <additionalField column="Language | Scripts of material" eadField="langmaterial" metadataField="DocLanguage" level="4" />
             <additionalField column="Related units of description" eadField="separatedmaterial" metadataField="SeparatedMaterial" level="5" />
@@ -75,7 +84,7 @@
             <additionalField column="Existence and location of originals" eadField="originalsloc" metadataField="OriginalsLocation" level="5" />
 
             <!-- first option: complete name is in a single column, fixed role -->
-            <personField metadataField="Author" eadField="Author" authorityColumn="GND for Author1" level="2">
+            <personField metadataField="Author" eadField="Author" authorityColumn="GND for Author1" authorityType="gnd" level="2">
                 <!-- use this field if the column contains the complete name -->
                 <!-- set this field to true, if the name must be splitted into first- and lastname. The complete name gets written into lastname -->
                 <!-- define at which character the name is separated. @firstNameIsFirstPart defines, if the firstname is the first or last part of the name -->
@@ -83,7 +92,8 @@
             </personField>
 
             <!-- second option: first name, last name, authority data in separate columns, fixed role -->
-            <personField metadataField="Author" eadField="Author" authorityColumn="GND for Author2" level="2">
+            <personField metadataField="Author" eadField="Author" authorityColumn="GND for Author2"
+                authorityTypeColumn="Authority type for Author2" level="2">
                 <nameColumn splitName="false" splitChar="," firstNameIsFirstPart="false">Author lastname 2</nameColumn>
                 <firstnameColumn>Author firstname 2</firstnameColumn>
             </personField>
@@ -95,7 +105,8 @@
 
 
             <!-- first option: complete name is in a single column, fixed role -->
-            <corporateField metadataField="HostInstitution" eadField="HostInstitution" authorityColumn="GND for Corporate1" level="2">
+            <corporateField metadataField="HostInstitution" eadField="HostInstitution" authorityColumn="GND for Corporate1"
+                authorityType="gnd" level="2">
                 <nameColumn splitName="true" splitChar="," >Corporate1</nameColumn>
             </corporateField>
 

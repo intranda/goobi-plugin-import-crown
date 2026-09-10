@@ -9,7 +9,7 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class PersonColumn {
+public class PersonColumn implements AuthorityColumn {
 
     private String rulesetName;
 
@@ -19,6 +19,8 @@ public class PersonColumn {
     private String firstColumnName;
     private String nameColumnName;
     private String authorityColumnName;
+    private String authorityType;
+    private String authorityTypeColumnName;
 
     private boolean splitName;
     private String splitChar;

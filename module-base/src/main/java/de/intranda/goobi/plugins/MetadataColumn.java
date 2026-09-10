@@ -5,7 +5,7 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class MetadataColumn {
+public class MetadataColumn implements AuthorityColumn {
 
     private String rulesetName;
 
@@ -17,4 +17,6 @@ public class MetadataColumn {
     private boolean identifierField;
 
     private String authorityColumnName;
+    private String authorityType;
+    private String authorityTypeColumnName;
 }
