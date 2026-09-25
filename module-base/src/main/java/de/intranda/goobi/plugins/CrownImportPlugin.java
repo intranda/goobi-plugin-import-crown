@@ -408,7 +408,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                     }
                     // we found content
                     if (StringUtils.isBlank(firstColumnValue)) {
-                        firstColumnValue = cell.getStringCellValue();
+                        firstColumnValue = getCellValue(row, cellCounter, wb);
                         hierarchy = cellCounter;
                         // check if value is bold
                         CellStyle cs = cell.getCellStyle();
@@ -418,7 +418,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
                             createProcess = true;
                         }
                     } else if (StringUtils.isBlank(secondColumnValue)) {
-                        secondColumnValue = cell.getStringCellValue();
+                        secondColumnValue = getCellValue(row, cellCounter, wb);
                     }
                 }
 
