@@ -89,6 +89,10 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
 
     private static final long serialVersionUID = 8789683342709053966L;
 
+    // cached image folders, shared between plugin instances because GoobiScript creates a new instance for each record
+    private static Map<String, Path> imageFolderCache = null;
+    private static String imageFolderCacheRoot = null;
+
     @Getter
     private String title = "intranda_import_crown";
     @Getter
@@ -301,6 +305,9 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
             workflowName = form.getTemplate().getTitel();
         }
         readConfig();
+
+        // new import run, image folders may have changed since the last run
+        clearImageFolderCache();
 
         boolean archiveExists = false;
 
@@ -1061,17 +1068,7 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
         readConfig();
 
         // collect all image folder
-        Map<String, Path> allImageFolder = new HashMap<>();
-
-        Path folder = Paths.get(imageRootFolder);
-        if (StorageProvider.getInstance().isDirectory(folder)) {
-
-            try (Stream<Path> stream = Files.find(folder, 10, (p, attr) -> attr.isDirectory())) {
-                stream.forEach(p -> allImageFolder.put(p.getFileName().toString(), p));
-            } catch (IOException e) {
-                log.error(e);
-            }
-        }
+        Map<String, Path> allImageFolder = getImageFolders(imageRootFolder);
 
         List<ImportObject> answer = new ArrayList<>();
 
@@ -1409,6 +1406,38 @@ public class CrownImportPlugin implements IImportPluginVersion3 {
         }
 
         return answer;
+    }
+
+    /**
+     * get all folders below the image root folder, mapped by folder name. The folder tree is only scanned once and cached until the next import run
+     * starts, as GoobiScript calls generateFiles for each record separately
+     *
+     * @param rootFolder image root folder
+     * @return map of folder names and paths
+     */
+    private static synchronized Map<String, Path> getImageFolders(String rootFolder) {
+        if (imageFolderCache != null && rootFolder != null && rootFolder.equals(imageFolderCacheRoot)) {
+            return imageFolderCache;
+        }
+        Map<String, Path> allImageFolder = new HashMap<>();
+        if (StringUtils.isNotBlank(rootFolder)) {
+            Path folder = Paths.get(rootFolder);
+            if (StorageProvider.getInstance().isDirectory(folder)) {
+                try (Stream<Path> stream = Files.find(folder, 10, (p, attr) -> attr.isDirectory())) {
+                    stream.forEach(p -> allImageFolder.put(p.getFileName().toString(), p));
+                } catch (IOException e) {
+                    log.error(e);
+                }
+            }
+        }
+        imageFolderCache = allImageFolder;
+        imageFolderCacheRoot = rootFolder;
+        return allImageFolder;
+    }
+
+    private static synchronized void clearImageFolderCache() {
+        imageFolderCache = null;
+        imageFolderCacheRoot = null;
     }
 
     /**
